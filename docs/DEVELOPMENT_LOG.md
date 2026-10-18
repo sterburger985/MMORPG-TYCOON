@@ -19,7 +19,7 @@ Sterling: push to GitHub (yes), publishing done, skip the second-account test fo
 Studio server suites Hub 92/92, World 130/130. Real DataStore save/reload of 17 objects. Build mode by real clicks (place, rotate, blocked reason, remove/refund, settings). Details: TECHNICAL_ARCHITECTURE §15.5.
 
 ### Problems
-- **GitHub push of Phase 4 was blocked** by this session's automatic permission check (the earlier push in the same session went through). Committed locally; needs a push.
+- The first attempt to attach the repo with push access was blocked by this session's permission check; a plain `git push` afterwards worked, so Phases 0–4 are on GitHub.
 - **Studio connector** still "no_tools"; Claude can't operate the Claude desktop app, so Sterling has to restart the connector.
 - **Live teleport test:** the Roblox app can't be pointed at a specific game without the website, so the one-account live loop is left for Sterling.
 - **Studio "Server & Clients"** gives players negative UserIds; the World server rightly refuses them as owners. A visitor test with `OwnerOverride` started, but its windows didn't appear on screen, so it was abandoned and the override removed.
