@@ -1,7 +1,7 @@
 # TECHNICAL_ARCHITECTURE — MMORPG Tycoon (Roblox)
 
 Part of [[MMORPG Tycoon]] · See also [[GAME_DESIGN]], [[PROJECT_STATUS]]
-Last updated: 2026-10-17 (Phase 0). **Status: proposed, nothing implemented.**
+Last updated: 2026-10-17 (Phase 1). **Status: server side implemented and tested (Phase 1); client side not implemented.** Sections that changed during implementation are marked *(Phase 1)*.
 
 ---
 
@@ -26,6 +26,7 @@ Mirrors the proven RoCiv setup.
 | Place file | `MMORPGTycoon.rbxl`, saved locally by Sterling (the current place is unsaved `Place1`) |
 | Notes | Obsidian vault `C:\Roblox Dev\MMORPG Tycoon\` (canonical design notes); repo `docs/` holds copies |
 | Testing | Built-in unit-test harness (ServerStorage.UnitTest), Studio playtests driven via the connector (play/stop, console, screenshots, simulated input) |
+| Static checks *(Phase 1)* | `rojo build` + `luau-lsp analyze` with Roblox type definitions (run by Claude in the cloud workspace); `tools/checksums.py` compares repo scripts with the place |
 | Assets | Studio connector generation (procedural model, mesh, material, texture), Blender connector, hand-built parts. No unvetted Toolbox models. |
 
 ### Repo layout (proposed)
@@ -41,6 +42,7 @@ src/
     Net.luau                remote names + reason codes (shared enum)
   server/                 -> ServerScriptService.Server
     Main.server.luau        bootstrap: Init all, then Start all
+    Util/RateLimiter.luau   token bucket (Phase 1)
     Services/
       PlayerDataService.luau
       PlotService.luau
@@ -53,10 +55,14 @@ src/
       PlacementController.luau
     UI/                     build-mode UI components (Phase 2)
 assets/                   -> notes on asset sources; models live in the place file
-tests/                    -> ServerStorage.UnitTest.Cases
+tests/                    -> ServerStorage.UnitTest (RunUnitTest + Cases/)
 docs/                     -> copies of the vault docs
-tools/StudioSync.lua
+tools/BuildPlaceholderAssets.lua   rebuilds the placeholder item models (Phase 1)
+tools/checksums.py                repo-vs-place script check (Phase 1)
+tools/StudioSync.lua              (fallback, not written yet)
 ```
+
+*(Phase 1)* `src/client/` and its Rojo mapping are added in Phase 2.
 
 Models (item templates and plot base) live in the **place file**, not the repo, under `ReplicatedStorage.Assets` (§2). The repo documents their names and expected structure.
 
@@ -67,8 +73,8 @@ Workspace
   Plots (Folder)
     Plot_1 … Plot_6 (Model)        attrs: PlotId, OwnerUserId (0 = free)
       Base (Part, anchored)          the world tile; defines origin + bounds
-      Spawn (SpawnLocation, disabled; used for teleporting the owner)
-      Border (decor)
+      SpawnPad (Part; the owner is teleported here on spawn, with an OwnerSign billboard) (Phase 1)
+      Rim1..4 (decor)
       Placed (Folder)                server-created item instances
         <placedId> (Model)           attrs: ItemId, PlacedId, CellX, CellZ, Rot
   Hub (Model)                       neutral ground between plots (optional, later)
@@ -76,7 +82,8 @@ Workspace
 ReplicatedStorage
   Shared (Folder)                  ← src/shared
   Assets (Folder)
-    Items (Folder)                 one Model per catalog item, PrimaryPart = footprint base
+    Items (Folder)                 one Model per catalog item; PrimaryPart = invisible "Hitbox" (footprint × height,
+                                   the only CanQuery part); pivot = bottom centre via Hitbox.PivotOffset (Phase 1)
   Remotes (Folder)                 created by the server at startup (not hand-made)
 
 ServerScriptService

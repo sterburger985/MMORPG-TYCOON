@@ -4,6 +4,77 @@ Part of [[MMORPG Tycoon]] · Newest entry at the top.
 
 ---
 
+## 2026-10-17 — Phase 1: Server foundation (plots, grid, authoritative placement)
+
+### Inspected before changing anything
+- Studio place `MMORPG TYCOON.rbxl` (saved by Sterling): still the bare template with 0 scripts. It was in **Play mode** when work began, so Claude stopped the playtest (nothing in Edit mode was affected).
+- Vault notes: no changes since Phase 0, so the GAME_DESIGN §9 proposed defaults stand.
+- Repo: Phase 0 commit present in Claude's workspace.
+
+### Plan followed
+Shared pure logic first (type-checked), then services, then reproducible placeholder assets, then sync into Studio, unit tests, and integration and security tests through the connector.
+
+### Files created (repo → place)
+| Repo file | Place instance |
+|---|---|
+| `src/shared/Config.luau` | `ReplicatedStorage.Shared.Config` |
+| `src/shared/Net.luau` | `ReplicatedStorage.Shared.Net` |
+| `src/shared/GridMath.luau` | `ReplicatedStorage.Shared.GridMath` |
+| `src/shared/ItemCatalog.luau` | `ReplicatedStorage.Shared.ItemCatalog` |
+| `src/shared/PlacementRules.luau` | `ReplicatedStorage.Shared.PlacementRules` |
+| `src/server/Main.server.luau` | `ServerScriptService.Server.Main` (Script) |
+| `src/server/Util/RateLimiter.luau` | `ServerScriptService.Server.Util.RateLimiter` |
+| `src/server/Services/PlayerDataService.luau` | `…Server.Services.PlayerDataService` |
+| `src/server/Services/PlotService.luau` | `…Server.Services.PlotService` |
+| `src/server/Services/EconomyService.luau` | `…Server.Services.EconomyService` |
+| `src/server/Services/PlacementService.luau` | `…Server.Services.PlacementService` |
+| `tests/RunUnitTest.luau` | `ServerStorage.UnitTest.RunUnitTest` |
+| `tests/Cases/{GridMath,PlacementRules,RateLimiter,ItemAssets}_Test.luau` | `ServerStorage.UnitTest.Cases.*` |
+| `tools/BuildPlaceholderAssets.lua` | built `ReplicatedStorage.Assets.Items.{StonePath, Boulder, OakTree, Cottage}` |
+| `tools/checksums.py` | dev helper: compares repo scripts with the place |
+
+Modified: `default.project.json` (added `ServerStorage.UnitTest ← tests`; the client mapping was removed until Phase 2 creates `src/client`).
+Created at runtime, not saved in the place: `Workspace.Plots.Plot_1…6` and `ReplicatedStorage.Remotes.{RequestPlace, RequestRemove}`.
+
+### Decisions
+- **Plots are generated at runtime** by PlotService if they're missing. This keeps the repo as the source of truth. Hand-made plot models with the same names (`Base`, `Placed`, `SpawnPad`) will be picked up instead later.
+- **No in-game dev hook was added.** The Studio connector calls the remotes directly from the Client datamodel, which tests the real network path. This avoids shipping throwaway debug code.
+- **Remove uses only the caller's own records**, so another player's object id returns `NotFound` (this leaks no information).
+- Item models pivot on `Hitbox.PivotOffset` (see the bug below).
+
+### Problems found and fixed
+1. **Type errors** (luau-lsp): a layer-type mismatch between ItemCatalog and PlacementRules, `pcall` typing on a no-return function, and the service list type in Main. All fixed; the type check is clean.
+2. **Objects sank into the ground by half their height.** Integration tests showed hitbox bottoms at Y −5 / −4.5 instead of 2. Cause: a Model with a `PrimaryPart` pivots on `PrimaryPart.PivotOffset`, and `WorldPivot` is ignored. A new `ItemAssets_Test` suite reproduced it (4 failures). The builder was fixed (`PivotOffset`) and the templates patched; the test then passed and every object's base measured exactly 2.00. Logged in [[Roblox Gotchas]].
+3. Test-script slip: a funds-drain loop hit an existing boulder (`Blocked`); the test was re-run on empty cells.
+
+### Testing performed (Studio Play, single client, through the connector)
+- **Type check:** 0 errors (luau-lsp + Roblox definitions). **Rojo build:** OK.
+- **Sync check:** all 16 scripts in the place match the repo (checksums).
+- **Unit tests:** 51/51 pass (GridMath 13, PlacementRules 15, RateLimiter 6, ItemAssets 17).
+- **Join:** 6 plots built; the player got Plot_1 with Cash 2000, PlotId 1, an owner sign, and a character standing on the spawn pad.
+- **Placement / removal (all correct):** valid place → ok and Cash deducted; same spot / overlap → `Blocked`; adjacent → ok; Floor under Object → ok; rotated cottage flush in the far corner → ok; unrotated → `OutOfBounds`; negative or huge cell → `OutOfBounds`; NaN / fraction / inf / string coordinates, rot 7, table id, no args → `BadArgs`; unknown item → `BadItem`; extra args ignored; remove → refund; double remove or unknown id → `NotFound`; number or 5000-char id → `BadArgs`; re-place on a freed spot → ok.
+- **Economy:** drained Cash with cottages → `InsufficientFunds` at $135 left. The client set its own Cash attribute to 999999 and the server ignored it.
+- **Rate limit:** 30 back-to-back requests → 7 `RateLimited`.
+- **World check:** 13 placed models. Position error vs GridMath 0.00000; all parts anchored; no same-layer overlap; other plots untouched.
+- **Leave:** kicking the player freed Plot_1 (owner 0, 0 objects, sign hidden).
+- **Console:** no errors or warnings from game code (only Roblox CoreGui UIBlox warnings).
+
+### Testing that remains necessary
+- 2–3 real clients (Studio *Clients and Servers*): parallel building, no interference, plot release when one player leaves.
+- Respawn after death re-teleports to the plot.
+- A visual review of plots and models (screenshots came back blank because the Studio window was likely hidden).
+- Performance with full plots (Phase 3).
+
+### Next: Phase 2 outline (pending approval)
+**Goal:** a player can build their world with mouse or touch, with no command-bar help.
+1. `src/client`: `Main.client`, `BuildingController` (mode state machine, ContextActionService bindings: B = build, R = rotate, X = remove, Esc/Q = cancel, plus touch buttons).
+2. `PlacementController`: ghost preview (reused clone, translucent), mouse or touch raycast onto your plot, snapping via `GridMath.anchorForCursor`, green/red tint via `PlacementRules` on a client occupancy mirror built from `Placed` attributes, a grid overlay shown only in build mode.
+3. Build UI: Cash display, a catalog bar grouped by category with prices (greyed out when unaffordable), error toasts using `Net.Message`, remove-mode hover highlight.
+4. Feedback: placement pop tween and sound, a red flash on rejection.
+5. Tests: client logic kept in testable modules; connector-driven input simulation and screenshots; device-simulator check for phone layout.
+
+---
+
 ## 2026-10-17 — Phase 0: Inspection & architecture
 
 ### Files and systems inspected

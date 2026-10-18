@@ -1,76 +1,65 @@
 # PROJECT_STATUS — MMORPG Tycoon (Roblox)
 
-Part of [[MMORPG Tycoon]] · Last updated: 2026-10-17
+Part of [[MMORPG Tycoon]] · Last updated: 2026-10-17 (end of Phase 1)
 
 ## Current phase
-**Phase 0 — Inspection & architecture: complete, awaiting Sterling's review.**
-Phase 1 must not start until Phase 0 is approved.
+**Phase 1 — Server foundation: complete, awaiting Sterling's review.**
+Phase 2 (client build mode) must not start until Phase 1 is approved.
 
 ## Current project condition
-The project is a **blank slate**. No gameplay exists yet.
+The server side of building works and has been tested in Studio: plots, the grid, Cash, and server-validated placement and removal. **There is no player-facing build UI yet.** Players get a plot and walk around it, but the only way to place objects right now is to call the remotes directly (the Studio connector does this for testing). The UI arrives in Phase 2.
 
-### What was discovered (verified 2026-10-17 through the Roblox Studio connector)
-| Item | Finding |
+| Item | State |
 |---|---|
-| Studio place | One open instance named `Place1`, in Edit mode. **Unsaved and unpublished** (PlaceId 0, GameId 0). |
-| Template | Default Baseplate: `Workspace.Baseplate` (2048 × 16 × 2048), `SpawnLocation`, `Camera`, `Terrain` (empty) |
-| Scripts | **0** scripts in Workspace, ReplicatedStorage, ReplicatedFirst, ServerScriptService, ServerStorage, StarterGui, StarterPack and StarterPlayer |
-| UI | None (StarterGui empty) |
-| Models / assets | None beyond the template |
-| Lighting | Default template set: Sky, SunRays, Atmosphere, Bloom, DepthOfField; ClockTime 14.5 |
-| Streaming | `Workspace.StreamingEnabled = true` |
-| Config files | None in the place |
-| Sync tooling | No Rojo, Argon or Wally found in the place. Rojo is not running (no local project folder connected). |
-| GitHub repo | `sterburger985/MMORPG-TYCOON` exists and is **empty** (no commits) |
-| Docs | None existed before Phase 0 |
-| Obsidian vault | `C:\Roblox Dev` has Home and RoCiv notes; no MMORPG Tycoon folder before this phase |
-| Reference workflow | RoCiv repo uses a Rojo `default.project.json` + `tools/StudioSync.lua`. MMORPG Tycoon adopts the same approach. |
+| Place file | `MMORPG TYCOON.rbxl`, saved by Sterling, unpublished (PlaceId 0). **Contains unsaved Phase 1 changes. Press Ctrl+S.** |
+| Scripts in place | 16 (11 game scripts + 5 test modules). All 16 match the repo byte-for-byte (checksum verified). |
+| Repo | `sterburger985/MMORPG-TYCOON`. Phase 0 and 1 work is committed in Claude's workspace but **not pushed**. |
+| Type check | `luau-lsp analyze` with Roblox definitions: **0 errors** on all source and test files |
+| Unit tests | **51 / 51 passing** in Studio Play |
 
 ## Feature status
-| Feature (MVP) | Status |
-|---|---|
-| 1. Players join a server | Engine default only; no game logic. **Not implemented** |
-| 2. Individual plot per player | **Not implemented** |
-| 3. Walk around plot | Default character only; no plot exists. **Not implemented** |
-| 4. Basic building interface | **Not implemented** |
-| 5. Select an object | **Not implemented** |
-| 6. Placement preview | **Not implemented** |
-| 7. Grid placement | **Not implemented** |
-| 8. Rotation before placement | **Not implemented** |
-| 9. Remove objects | **Not implemented** |
-| 10. Purchase with in-game currency | **Not implemented** |
-| 11. Server ownership and purchase validation | **Not implemented** |
-| 12. Multiplayer building without interference | **Not implemented** |
-| Persistence (post-MVP) | **Not implemented** |
+Legend: ✅ tested successfully in Studio · 🟡 implemented, not tested in Studio · ⬜ not implemented
 
-## Completed work
-- Inspected the Studio place, the GitHub repo, the Obsidian vault and the RoCiv reference workflow.
-- Wrote GAME_DESIGN, TECHNICAL_ARCHITECTURE, PROJECT_STATUS and DEVELOPMENT_LOG.
-- Created the vault project folder, hub note, decisions log and Phase 0 note.
+| MVP feature | Status | Evidence / notes |
+|---|---|---|
+| 1. Players join a server | ✅ | Join creates a profile, sets Cash and assigns a plot |
+| 2. Individual plot per player | ✅ | 6 plots built at runtime; the player got Plot_1 with an owner sign. Release on leave was tested by kicking the player: owner reset, objects cleared, sign hidden. |
+| 3. Walk around your plot | ✅ (partly) | The character is teleported to its plot's spawn pad and stands on the plot (Y 5.4). Respawn re-teleport is wired up but untested. |
+| 4. Basic building interface | ⬜ | Phase 2 |
+| 5. Select an object | ⬜ | Phase 2 (catalog data exists: `ItemCatalog.all()`) |
+| 6. Placement preview | ⬜ | Phase 2 (`PlacementRules` and `GridMath.anchorForCursor` are ready for it) |
+| 7. Grid placement | ✅ (server) | Positions match `GridMath` exactly (max error 0.00000 studs); every object's base sits on the plot surface (Y 2.00) |
+| 8. Rotation | ✅ (server) | Rot 0–3 accepted; a rotated cottage occupies the swapped footprint. The rotate *control* is Phase 2. |
+| 9. Remove objects | ✅ (server) | Refund applied, cells freed (re-placing on the same spot works), double-remove → `NotFound` |
+| 10. Buy with in-game currency | ✅ (server) | Price deducted on place; ran out of Cash → `InsufficientFunds`; exact-amount purchase allowed (unit test) |
+| 11. Server ownership and purchase validation | ✅ | 23 forged or invalid remote calls tested (see [[DEVELOPMENT_LOG]]); all rejected with the right reason and no state change. A client faking its Cash attribute had no effect. |
+| 12. Multiple players without interference | 🟡 | By design the plot comes from the server, so a client can't name another plot, and remove only searches the caller's own records. Other plots stayed empty while Plot_1 was built on. **Not yet tested with 2+ real clients.** |
+| Persistence (post-MVP) | ⬜ | Phase 4 |
+
+## Completed work (Phase 1)
+- Shared modules: `Config`, `Net`, `GridMath`, `ItemCatalog`, `PlacementRules`.
+- Server: `RateLimiter`, `PlayerDataService`, `PlotService`, `EconomyService`, `PlacementService`, `Main` bootstrap.
+- Four placeholder item models (Stone Path, Boulder, Oak Tree, Cottage), built by the reproducible `tools/BuildPlaceholderAssets.lua`.
+- Unit-test harness + 4 suites (GridMath, PlacementRules, RateLimiter, ItemAssets): 51 tests.
+- Toolchain: Rojo 7.4.4 (build and sourcemap), luau-lsp type checking, script checksum sync check (`tools/checksums.py`).
 
 ## Incomplete work
-- All gameplay systems (by design; Phase 0 is documentation only).
-- Repo scaffold (`default.project.json`, `.gitignore`, README, `docs/`) is prepared but **not pushed** until Sterling OKs pushing.
-- Open design questions in [[GAME_DESIGN]] §9 still need answers. Proposed defaults are used unless Sterling changes them.
+- Build-mode UI, ghost preview and input (Phase 2).
+- Final art and sounds (Phase 3). Current models are clean placeholders.
+- Persistence (Phase 4).
+- Visual check of the plots and models. Studio screenshots came back blank (the window was probably hidden), so the look hasn't been reviewed by eye yet.
 
 ## Known problems / risks
-- **The place is unsaved.** If Studio closes, the place is lost. It's only a blank template today, but it must be saved before Phase 1.
-- **The place is unpublished.** DataStores (persistence) can't be tested until it's published and API access is enabled. Not needed until the persistence phase.
-- **No Rojo:** code reaches Studio through the Studio connector or StudioSync, so repo and place can drift. Mitigation: after each sync, verify the scripts in the place match the repo commit.
-- **Multi-client testing:** the connector drives one client. Multi-player checks need Sterling to run *Test → Clients and Servers*.
-- **Name and IP:** "MMORPG Tycoon" is an existing commercial title. Choose an original name before publishing publicly.
+- **No UI yet:** a player who joins sees their plot but can't build. Expected until Phase 2.
+- **Multi-client behaviour untested.** Needs *Test → Clients and Servers* (2–3 players).
+- **Max Players not set:** the server kicks a 7th player ("server full"). Set Game Settings → Places → Max Players = 6 once published.
+- **Unsaved place:** the Phase 1 changes are in the open Studio session. Save with Ctrl+S.
+- **Repo not pushed:** the code lives in the place and in Claude's workspace until it's pushed to GitHub.
 
 ## Setup requirements (Roblox Studio)
-Before Phase 1:
-1. **File → Save to File As…** → `MMORPGTycoon.rbxl` (any folder; suggested `C:\Roblox Dev\MMORPG Tycoon\Place\` or next to the repo).
-2. Keep the place open in Studio with the MCP / Assistant connector enabled when asking Claude to work.
-
-Later (persistence phase):
-3. **File → Publish to Roblox** (can stay private).
-4. **Game Settings → Security → Enable Studio Access to API Services.**
-
-Optional:
-5. Install Rojo (VS Code extension + Studio plugin) if you want live file sync on your PC.
+1. **Save the place now** (Ctrl+S) to keep the Phase 1 scripts and models.
+2. Keep Studio open, **visible** (not minimised) and with the MCP connector on while Claude works.
+3. Later: publish, set Max Players = 6, and enable Studio Access to API Services (needed for persistence).
 
 ## Next implementation task
-**Phase 1 — Server foundation: plots, grid and authoritative placement** (outline in [[DEVELOPMENT_LOG]]; a Phase 1 note will be created when it starts).
+**Phase 2 — Client build mode.** See the outline in [[DEVELOPMENT_LOG]].
