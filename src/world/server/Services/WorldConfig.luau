@@ -16,7 +16,7 @@ local WorldConfig = {
 	-- Studio only: "Dev" uses the in-place test store (ServerStorage.WorldDevStore), which works
 	-- without publishing. "DataStore" uses real DataStores (needs a published experience with
 	-- Studio API access). Live servers always use real DataStores.
-	STUDIO_STORE_MODE = "Dev",
+	STUDIO_STORE_MODE = "DataStore", -- published 2026-10-18; Studio uses the StudioTest_ stores
 
 	-- Saving
 	AUTOSAVE_INTERVAL = 60, -- seconds between autosave checks (only saves if something changed)

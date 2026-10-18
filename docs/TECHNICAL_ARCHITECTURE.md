@@ -602,3 +602,34 @@ Status legend as in PROJECT_STATUS: ✅ tested in Studio · 🧪 unit-tested · 
 3. Add the World place to that experience with a name containing "World", then publish `C:\Roblox Dev\MMORPG Tycoon\MMORPG TYCOON WORLD.rbxl` into it (open the file → File → Publish to Roblox As → pick the experience → the World place).
 4. Access Control for Places → *Secure within universe only*. Max Players: Hub 6, World 12.
 5. Then Claude runs the live travel tests with Sterling plus a second account.
+
+---
+
+## 15. Phase 4 implementation: build mode, blue UI, publishing (2026-10-18)
+
+### 15.1 Build mode (client: `src/client/world/BuildMode.client.luau`)
+- **Preview only.** The client mirrors the server's occupancy from the replicated `WorldPlot.Placed` models (`ItemId`, `CellX`, `CellZ`, `Rot` attributes) into a `PlacementRules` plot state, so the preview tint and reason match what the server will answer. Every change is still a `RequestPlace` / `RequestRemove` call that runs the full server rule chain.
+- **Pointer → cell:** raycast against `WorldPlot.Base` only → `GridMath.worldToCell` → `anchorForCursor` (centres the rotated footprint on the cursor) → clamped inside the plot → `PlacementRules.check(…, cash, …)`.
+- **Ghost:** a clone of the item model (translucent, non-colliding, lights and particles removed) with a `Highlight`, lerped towards the snapped `GridMath.footprintCFrame`; a Neon footprint plate (cyan valid / red invalid) and an always-on-top tag (price, or the `Net.Message` reason).
+- **Controls:** click place · R rotate · X remove mode · Q/Esc cancel. Touch: tap to aim, then ✅ PLACE / 🔄 ROTATE buttons (placed clear of the thumbstick and jump button); the dock scales to the viewport.
+- **Remove mode:** raycast against `Placed`, red highlight, tag with name and refund, click to remove.
+- **Feedback:** burst ring + sparkles on place/remove, a short pop-in scale on new objects (client-only), Cash chip bump, error toasts from server reasons.
+- **Roles:** only the owner of a `ready` world sees build tools; visitors see "VISITING · LOOK AROUND" and the HUB button.
+
+### 15.2 Items
+`ItemCatalog` has 10 items in 5 categories (Buildings, Nature, Ground, Decor, Magic). The 6 new models (Arcane Crystal, Lantern Post, Wooden Fence, Stone Well, Market Stall, Mage Tower) are built by `tools/BuildPlaceholderAssets*` in the same code-built style and checked by `ItemAssets_Test` (footprint, pivot, hitbox) in Studio.
+
+### 15.3 UI theme ("magic-fantasy blue")
+`UI.Colors`: sapphire panel gradient (28,62,136 → 12,26,64), cyan rim (120,220,255), azure primary (46,156,255), ink outline (8,24,70), gold (255,206,92) reserved for money. `UI.heading` gives white Fredoka text with a dark-blue outline (the reference images' title style). Button styles: blue / gold / dark / danger / ghost. Hub gates and the plaza rune ring use the same arcane blue.
+
+### 15.4 Config and limits
+`GAME_TITLE = "MMO Tycoon"`, `DEFAULT_WORLD_NAME = "My MMO"`, `MAX_VISITORS = 4` (World server refuses a 5th visitor; World place Max Players should be 5 so the owner always fits), `HUB_PLACE_ID = 78195623283467`, `WORLD_PLACE_ID = 86431904123318`, `WorldConfig.STUDIO_STORE_MODE = "DataStore"` (Studio uses the `StudioTest_*` stores).
+
+### 15.5 Testing
+- Studio server suites: Hub **92/92**, World **130/130**. Local Lune: Hub 51/51, World 89/89.
+- Real DataStores (`StudioTest_Worlds_v1`): new world → 17 objects placed → autosave 1,121 bytes → new session → 17 rebuilt, 0 dropped, Cash 549 restored.
+- Build mode by real clicks: tray, ghost, rotate, place (Cash −250), occupied spot shows the server's reason, remove (refund +250), settings pop-out.
+- Not tested: touch input, visitor dock with a real visitor, visitor cap, live teleports (now possible: the experience is published).
+
+### 15.6 Tooling
+`tools/make-install-model.py hub|world OUT.rbxm` builds the Studio install model straight from the place's Rojo project (so new scripts are never missed). Install steps: `tools/INSTALL-from-rbxm.md`.

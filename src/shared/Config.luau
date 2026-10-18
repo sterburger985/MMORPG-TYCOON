@@ -21,13 +21,17 @@ local Config = {
 	START_CASH = 2000, -- (proposed)
 	REFUND_RATE = 1, -- fraction of the price returned on removal (proposed)
 
-	-- Worlds
-	DEFAULT_WORLD_NAME = "My MMORPG",
+	-- Game
+	GAME_TITLE = "MMO Tycoon",
 
-	-- Places. 0 = find them automatically (the place whose name contains "World" is the
-	-- World place; the other is the Hub). Set real ids here to override.
-	HUB_PLACE_ID = 0,
-	WORLD_PLACE_ID = 0,
+	-- Worlds
+	DEFAULT_WORLD_NAME = "My MMO",
+	MAX_VISITORS = 4, -- visitors per world, on top of the owner (World place Max Players = 5)
+
+	-- Places of the published experience (GameId 10771780924). 0 = find automatically
+	-- (the place whose name contains "World" is the World place; the other is the Hub).
+	HUB_PLACE_ID = 78195623283467,
+	WORLD_PLACE_ID = 86431904123318,
 
 	-- Anti-spam: token bucket per player for build requests
 	RATE_LIMIT_PER_SEC = 8,

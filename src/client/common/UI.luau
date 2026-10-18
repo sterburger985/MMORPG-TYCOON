@@ -1,7 +1,8 @@
 --!nonstrict
--- UI: the game's shared interface kit (both places). Dark-violet panels with warm gold
--- trim, rounded corners, soft gradients, smooth hover/press motion, toasts and a travel
--- screen. Every screen uses these helpers so the whole game looks like one product.
+-- UI: the game's shared interface kit (both places). Magic-fantasy blue: deep sapphire
+-- glass panels with a luminous cyan rim, bright azure buttons with white outlined text,
+-- gold kept for money only. Rounded corners, smooth hover/press motion, toasts and a
+-- travel screen. Every screen uses these helpers so the whole game looks like one product.
 
 local Players = game:GetService("Players")
 local TeleportService = game:GetService("TeleportService")
@@ -10,16 +11,20 @@ local TweenService = game:GetService("TweenService")
 local UI = {}
 
 UI.Colors = {
-	panel = Color3.fromRGB(26, 20, 44),
-	panel2 = Color3.fromRGB(44, 34, 74),
-	gold = Color3.fromRGB(240, 192, 96),
-	goldDeep = Color3.fromRGB(196, 132, 52),
-	text = Color3.fromRGB(255, 246, 228),
-	sub = Color3.fromRGB(196, 184, 230),
-	accent = Color3.fromRGB(150, 110, 255),
-	good = Color3.fromRGB(116, 214, 146),
-	bad = Color3.fromRGB(244, 108, 108),
-	info = Color3.fromRGB(120, 190, 255),
+	panel = Color3.fromRGB(12, 26, 64), -- deep sapphire
+	panel2 = Color3.fromRGB(28, 62, 136), -- lighter sapphire (gradient top)
+	glow = Color3.fromRGB(120, 220, 255), -- luminous cyan rim
+	azure = Color3.fromRGB(46, 156, 255), -- primary button
+	azureDeep = Color3.fromRGB(22, 92, 210),
+	ink = Color3.fromRGB(8, 24, 70), -- text outline
+	gold = Color3.fromRGB(255, 206, 92), -- money / rewards only
+	goldDeep = Color3.fromRGB(214, 140, 40),
+	text = Color3.fromRGB(248, 252, 255),
+	sub = Color3.fromRGB(176, 208, 248),
+	accent = Color3.fromRGB(110, 190, 255),
+	good = Color3.fromRGB(104, 228, 160),
+	bad = Color3.fromRGB(255, 104, 120),
+	info = Color3.fromRGB(120, 206, 255),
 }
 
 UI.Fonts = {
@@ -108,17 +113,35 @@ function UI.screen(name: string, displayOrder: number?): ScreenGui
 	})
 end
 
--- A rounded panel with a subtle gradient and gold hairline border.
+-- A rounded sapphire glass panel with a soft gradient and a glowing cyan rim.
 function UI.panel(props: { [string]: any }): Frame
-	local p = { BackgroundColor3 = Color3.new(1, 1, 1), BackgroundTransparency = 0.08, BorderSizePixel = 0 }
+	local p = { BackgroundColor3 = Color3.new(1, 1, 1), BackgroundTransparency = 0.06, BorderSizePixel = 0 }
 	for k, v in props do
 		p[k] = v
 	end
 	return UI.new("Frame", p, {
 		UI.corner(16),
 		UI.gradient(UI.Colors.panel2, UI.Colors.panel),
-		UI.stroke(UI.Colors.gold, 1.5, 0.45),
+		UI.stroke(UI.Colors.glow, 1.5, 0.35),
 	})
+end
+
+-- Big outlined heading text (white or tinted, with a dark-blue outline), like a game title.
+function UI.heading(props: { [string]: any }): TextLabel
+	local p = {
+		BackgroundTransparency = 1,
+		Font = UI.Fonts.title,
+		TextColor3 = UI.Colors.text,
+		TextStrokeColor3 = UI.Colors.ink,
+		TextStrokeTransparency = 0.15,
+		TextScaled = true,
+	}
+	for k, v in props do
+		if k ~= "MaxTextSize" then
+			p[k] = v
+		end
+	end
+	return UI.new("TextLabel", p, { UI.new("UITextSizeConstraint", { MaxTextSize = props.MaxTextSize or 36 }) })
 end
 
 -- A small pill with text, e.g. "🌍 Public".
@@ -144,35 +167,59 @@ function UI.chip(parent: Instance, text: string, color: Color3, props: { [string
 	})
 end
 
--- A button with hover lift and press squish. style: "gold" | "dark" | "ghost".
+-- Button styles. The colour lives in BackgroundColor3 and the gradient is a neutral
+-- white-to-grey shade, because a UIGradient also tints the button's text.
+local BUTTON_STYLES = {
+	blue = { bg = Color3.fromRGB(46, 156, 255), shade = Color3.fromRGB(150, 175, 225), rim = Color3.fromRGB(190, 236, 255), text = Color3.fromRGB(255, 255, 255), outline = true },
+	gold = { bg = Color3.fromRGB(255, 196, 70), shade = Color3.fromRGB(215, 175, 140), rim = Color3.fromRGB(255, 238, 190), text = Color3.fromRGB(255, 255, 255), outline = true },
+	dark = { bg = Color3.fromRGB(28, 62, 136), shade = Color3.fromRGB(150, 160, 200), rim = Color3.fromRGB(120, 220, 255), text = Color3.fromRGB(248, 252, 255), outline = false },
+	danger = { bg = Color3.fromRGB(235, 80, 96), shade = Color3.fromRGB(200, 160, 170), rim = Color3.fromRGB(255, 200, 205), text = Color3.fromRGB(255, 255, 255), outline = true },
+	ghost = { bg = Color3.fromRGB(20, 44, 100), shade = Color3.fromRGB(170, 175, 210), rim = Color3.fromRGB(120, 220, 255), text = Color3.fromRGB(200, 225, 255), outline = false },
+}
+UI.ButtonStyles = BUTTON_STYLES
+
+-- Restyle an existing button (used for toggles such as the selected tool).
+function UI.styleButton(button: TextButton, style: string)
+	local st = BUTTON_STYLES[style] or BUTTON_STYLES.blue
+	button.BackgroundColor3 = st.bg
+	button.TextColor3 = st.text
+	button.TextStrokeColor3 = UI.Colors.ink
+	button.TextStrokeTransparency = if st.outline then 0.35 else 1
+	local grad = button:FindFirstChildOfClass("UIGradient")
+	if grad then
+		grad.Color = ColorSequence.new(Color3.new(1, 1, 1), st.shade)
+	end
+	local stroke = button:FindFirstChildOfClass("UIStroke")
+	if stroke then
+		stroke.Color = st.rim
+		stroke.Transparency = if style == "ghost" then 0.55 else 0.1
+	end
+end
+
+-- A button with hover lift and press squish. style: "blue" (default) | "gold" | "dark" | "danger" | "ghost".
 function UI.button(props: { [string]: any }, style: string?): TextButton
-	style = style or "gold"
-	local isGold = style == "gold"
-	-- A UIGradient tints the text as well as the background, so the colour lives in
-	-- BackgroundColor3 and the gradient is a neutral white-to-grey shade (which only
-	-- darkens the text very slightly).
+	local styleName = style or "blue"
 	local p = {
 		AutoButtonColor = false,
-		BackgroundColor3 = if isGold then Color3.fromRGB(255, 206, 110) else UI.Colors.panel2,
 		BorderSizePixel = 0,
 		Font = UI.Fonts.title,
 		TextScaled = true,
-		TextColor3 = if isGold then Color3.fromRGB(58, 30, 10) else UI.Colors.text,
 	}
 	for k, v in props do
-		if k ~= "MaxTextSize" then
+		if k ~= "MaxTextSize" and k ~= "CornerRadius" then
 			p[k] = v
 		end
 	end
 	local scale = UI.new("UIScale", { Scale = 1 })
 	local button = UI.new("TextButton", p, {
-		UI.corner(14),
-		UI.gradient(Color3.new(1, 1, 1), if isGold then Color3.fromRGB(205, 175, 150) else Color3.fromRGB(190, 190, 200)),
-		UI.stroke(if isGold then Color3.fromRGB(255, 240, 200) else UI.Colors.gold, if isGold then 2 else 1.5, if style == "ghost" then 0.6 else 0.15),
+		UI.corner(props.CornerRadius or 14),
+		UI.gradient(Color3.new(1, 1, 1), Color3.new(0.7, 0.7, 0.7)),
+		UI.stroke(Color3.new(1, 1, 1), 2, 0.1),
 		UI.new("UITextSizeConstraint", { MaxTextSize = props.MaxTextSize or 26 }),
 		UI.new("UIPadding", { PaddingLeft = UDim.new(0, 12), PaddingRight = UDim.new(0, 12), PaddingTop = UDim.new(0, 6), PaddingBottom = UDim.new(0, 6) }),
 		scale,
 	})
+	UI.styleButton(button, styleName)
 	button.MouseEnter:Connect(function()
 		UI.tween(scale, FAST, { Scale = 1.05 })
 	end)
@@ -260,9 +307,9 @@ local function buildTravelScreen(title: string, text: string): ScreenGui
 	}, {
 		UI.new("UIGradient", {
 			Color = ColorSequence.new({
-				ColorSequenceKeypoint.new(0, Color3.fromRGB(34, 18, 64)),
-				ColorSequenceKeypoint.new(0.6, Color3.fromRGB(16, 12, 34)),
-				ColorSequenceKeypoint.new(1, Color3.fromRGB(8, 6, 18)),
+				ColorSequenceKeypoint.new(0, Color3.fromRGB(30, 76, 170)),
+				ColorSequenceKeypoint.new(0.55, Color3.fromRGB(12, 30, 84)),
+				ColorSequenceKeypoint.new(1, Color3.fromRGB(4, 10, 32)),
 			}),
 			Rotation = 90,
 		}),
@@ -275,7 +322,9 @@ local function buildTravelScreen(title: string, text: string): ScreenGui
 		Size = UDim2.new(0.8, 0, 0, 64),
 		Font = UI.Fonts.title,
 		TextScaled = true,
-		TextColor3 = UI.Colors.gold,
+		TextColor3 = UI.Colors.text,
+		TextStrokeColor3 = UI.Colors.ink,
+		TextStrokeTransparency = 0.2,
 		Text = title,
 	}, { UI.new("UITextSizeConstraint", { MaxTextSize = 56 }) })
 	UI.new("TextLabel", {
@@ -297,8 +346,8 @@ local function buildTravelScreen(title: string, text: string): ScreenGui
 		Size = UDim2.new(0.8, 0, 0, 22),
 		Font = UI.Fonts.title,
 		TextScaled = true,
-		TextColor3 = Color3.fromRGB(150, 130, 200),
-		Text = "✦  MMORPG TYCOON  ✦",
+		TextColor3 = UI.Colors.glow,
+		Text = "✦  MMO TYCOON  ✦",
 	}, { UI.new("UITextSizeConstraint", { MaxTextSize = 18 }) })
 	return gui
 end

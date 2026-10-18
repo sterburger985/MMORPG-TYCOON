@@ -59,6 +59,9 @@
           },
           "WorldHud": {
             "$path": "src/client/world/WorldHud.client.luau"
+          },
+          "BuildMode": {
+            "$path": "src/client/world/BuildMode.client.luau"
           }
         }
       }

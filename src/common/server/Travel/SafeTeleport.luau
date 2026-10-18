@@ -46,7 +46,7 @@ end
 
 TeleportService.TeleportInitFailed:Connect(function(player: Player, result: Enum.TeleportResult, message: string)
 	local text = if result == Enum.TeleportResult.GameFull
-		then "That world is full right now."
+		then "That world is full right now (4 visitors max). Try again soon!"
 		elseif result == Enum.TeleportResult.Flooded then "Too many travel requests. Wait a moment and try again."
 		else "Travel failed. Please try again."
 	warn(`[SafeTeleport] {player.Name} teleport failed after starting: {result.Name} {message}`)

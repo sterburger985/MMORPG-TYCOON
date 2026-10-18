@@ -19,6 +19,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
 local AccessPolicy = require(ReplicatedStorage.Shared.AccessPolicy)
+local Config = require(ReplicatedStorage.Shared.Config)
 local Net = require(ReplicatedStorage.Shared.Net)
 
 local EconomyService = require(script.Parent.EconomyService)
@@ -204,6 +205,18 @@ local function spawnPlayer(player: Player)
 		if decision ~= "allowed" then
 			log(`{player.Name} refused entry: {decision}`)
 			sendToHub(player, AccessPolicy.message(decision))
+			return
+		end
+		local visitors = 0
+		for _, other in Players:GetPlayers() do
+			if other ~= player and not WorldState.isOwner(other) then
+				visitors += 1
+			end
+		end
+		if visitors >= Config.MAX_VISITORS then
+			-- Max Players is MAX_VISITORS + 1, so this keeps a slot free for the owner.
+			log(`{player.Name} refused entry: full ({visitors} visitors)`)
+			sendToHub(player, `That world is full ({Config.MAX_VISITORS} visitors max). Try again soon!`)
 			return
 		end
 		log(`{player.Name} is visiting (view only)`)

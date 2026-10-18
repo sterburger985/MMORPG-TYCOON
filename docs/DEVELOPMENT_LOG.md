@@ -4,6 +4,29 @@ Part of [[MMORPG Tycoon]] · Newest entry at the top.
 
 ---
 
+## 2026-10-18 (afternoon) — Phase 4: build mode, magic-fantasy blue UI, publishing
+
+### Request
+Sterling: push to GitHub (yes), publishing done, skip the second-account test for now, Studio restarted, visitors stay when the owner leaves, **4 visitors per world**, **magic-fantasy blue UI** (reference images: chunky outlined headings, bright blue square buttons, white bottom bar, orange reward text), **build the build mode system**, fix the Studio connector if needed, title "WorldForge" or "MMO Tycoon", and do anything possible without waiting for permission.
+
+### What happened
+- A first run (12:47–13:15) pushed Phases 0–3 to GitHub (`sterburger985/MMORPG-TYCOON`, `main` = 55fb089), read the published place ids, set the title, the 4-visitor cap and Studio's real-DataStore mode, added 6 item models, drafted the blue theme and build mode, then stopped at the usage limit. The resumed run (15:23) finished it.
+- **Title:** "WorldForge" is already used by a long-running open-source MMO project and other games, so **MMO Tycoon** (also the experience's new name).
+- Finished the UI restyle (World HUD banner, ⚙ WORLD side button + settings pop-out, hub card headings, blue ENTER button, blue gates and rune ring), wired BuildMode into the World project, fixed 3 type errors, added `tools/make-install-model.py`.
+- Installed r8 into both published places, tested, fixed blank tool icons (↻ ✖ ⟵ don't render in FredokaOne → emoji) and the remove tag drifting off-screen, installed r9 into the World place, **published both places**, renamed the experience and added a description.
+
+### Testing
+Studio server suites Hub 92/92, World 130/130. Real DataStore save/reload of 17 objects. Build mode by real clicks (place, rotate, blocked reason, remove/refund, settings). Details: TECHNICAL_ARCHITECTURE §15.5.
+
+### Problems
+- **GitHub push of Phase 4 was blocked** by this session's automatic permission check (the earlier push in the same session went through). Committed locally; needs a push.
+- **Studio connector** still "no_tools"; Claude can't operate the Claude desktop app, so Sterling has to restart the connector.
+- **Live teleport test:** the Roblox app can't be pointed at a specific game without the website, so the one-account live loop is left for Sterling.
+- **Studio "Server & Clients"** gives players negative UserIds; the World server rightly refuses them as owners. A visitor test with `OwnerOverride` started, but its windows didn't appear on screen, so it was abandoned and the override removed.
+- Studio's Experience Settings no longer has per-place Max Players; set World = 5 in the Creator Hub.
+
+---
+
 ## 2026-10-18 — Phase 2 Studio verification + Phase 3: travel and visiting
 
 ### Request

@@ -26,11 +26,11 @@ local card = UI.panel({
 	Size = UDim2.new(0, 300, 0, 128),
 })
 UI.padding(14).Parent = card
-UI.label({ Parent = card, Text = "YOUR WORLD", Font = UI.Fonts.bold, TextColor3 = UI.Colors.gold, Size = UDim2.new(1, 0, 0, 14), MaxTextSize = 13 })
-local nameLabel = UI.label({
+UI.heading({ Parent = card, Text = "YOUR WORLD", TextXAlignment = Enum.TextXAlignment.Left, TextColor3 = UI.Colors.glow, Size = UDim2.new(1, 0, 0, 16), MaxTextSize = 15 })
+local nameLabel = UI.heading({
 	Parent = card,
 	Text = "Loading...",
-	Font = UI.Fonts.title,
+	TextXAlignment = Enum.TextXAlignment.Left,
 	Position = UDim2.new(0, 0, 0, 18),
 	Size = UDim2.new(1, 0, 0, 34),
 	MaxTextSize = 30,
@@ -58,7 +58,7 @@ local enterButton = UI.button({
 	Size = UDim2.new(0, 300, 0, 62),
 	Text = "⚔  ENTER MY WORLD",
 	MaxTextSize = 28,
-}, "gold")
+}, "blue")
 
 local travelling = false
 enterButton.Activated:Connect(function()

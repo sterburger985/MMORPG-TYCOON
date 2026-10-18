@@ -28,7 +28,7 @@ local WorldDirectory = require(Server.Travel.WorldDirectory)
 
 type Gate = { model: Model, portal: BasePart, prompt: ProximityPrompt, title: TextLabel, subtitle: TextLabel }
 
-local GLOW = Color3.fromRGB(150, 110, 255)
+local GLOW = Color3.fromRGB(80, 170, 255) -- arcane blue, matching the UI theme
 local VISIBILITY_LABEL = {
 	Public = "🌍 Public",
 	FriendsOnly = "👥 Friends only",

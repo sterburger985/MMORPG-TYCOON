@@ -177,7 +177,7 @@ function HubEnvironment.build()
 	Decor.disc(plaza, Vector3.new(0, 0.36, 0), 10, 0.3, {
 		Name = "RuneRing",
 		Material = Enum.Material.Neon,
-		Color = Color3.fromRGB(160, 120, 255),
+		Color = Color3.fromRGB(90, 190, 255),
 		Transparency = 0.55,
 		CastShadow = false,
 	})

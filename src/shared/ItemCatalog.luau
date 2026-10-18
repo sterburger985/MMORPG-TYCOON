@@ -6,7 +6,7 @@
 -- model is the name of a Model in ReplicatedStorage.Assets.Items whose pivot is
 -- the bottom centre of its footprint.
 --
--- Phase 1 ships four placeholder items; the final art set arrives in Phase 3.
+-- Ten code-built items (4 from Phase 1, 6 fantasy items added with build mode).
 
 export type Layer = "Floor" | "Object"
 
@@ -61,6 +61,60 @@ local items: { [string]: Item } = {
 		layer = "Object",
 		category = "Buildings",
 		model = "Cottage",
+	}),
+	arcane_crystal = item({
+		id = "arcane_crystal",
+		name = "Arcane Crystal",
+		price = 60,
+		size = { w = 1, d = 1 },
+		layer = "Object",
+		category = "Magic",
+		model = "ArcaneCrystal",
+	}),
+	lantern_post = item({
+		id = "lantern_post",
+		name = "Lantern Post",
+		price = 25,
+		size = { w = 1, d = 1 },
+		layer = "Object",
+		category = "Decor",
+		model = "LanternPost",
+	}),
+	wooden_fence = item({
+		id = "wooden_fence",
+		name = "Wooden Fence",
+		price = 8,
+		size = { w = 1, d = 1 },
+		layer = "Object",
+		category = "Decor",
+		model = "WoodenFence",
+	}),
+	stone_well = item({
+		id = "stone_well",
+		name = "Stone Well",
+		price = 120,
+		size = { w = 2, d = 2 },
+		layer = "Object",
+		category = "Buildings",
+		model = "StoneWell",
+	}),
+	market_stall = item({
+		id = "market_stall",
+		name = "Market Stall",
+		price = 180,
+		size = { w = 3, d = 2 },
+		layer = "Object",
+		category = "Buildings",
+		model = "MarketStall",
+	}),
+	mage_tower = item({
+		id = "mage_tower",
+		name = "Mage Tower",
+		price = 600,
+		size = { w = 3, d = 3 },
+		layer = "Object",
+		category = "Magic",
+		model = "MageTower",
 	}),
 }
 table.freeze(items)

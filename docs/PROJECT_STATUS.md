@@ -1,15 +1,35 @@
-# PROJECT_STATUS — MMORPG Tycoon (Roblox)
+# PROJECT_STATUS — MMO Tycoon (Roblox)
 
-Part of [[MMORPG Tycoon]] · Last updated: 2026-10-18 (Phase 2 verified in Studio; Phase 3 travel and visiting built and Studio-tested; live travel needs publishing)
+Part of [[MMORPG Tycoon]] · Last updated: 2026-10-18 (Phase 4 build mode and blue UI live in the published experience; real DataStores verified)
 
 ## Current phase
-**Phase 3: Travel and visiting. Built; every path that can run in Studio is tested. Teleports and real DataStores need the published experience. Awaiting review.**
+**Phase 4: Build mode + magic-fantasy blue UI. Built, tested in Studio against real DataStores, and published to the private experience. Awaiting review.**
 
-- **Phase 2 is now verified in Studio** (World place copy, Studio dev store): Tests A–F all pass. Only the real-DataStore pass remains (needs publishing).
-- **Phase 3 delivered:** a World Gate on every hub plot, an ENTER MY WORLD button, reserved-server access codes with an owner index, access checks in the hub and again on arrival, a Hub Gate and RETURN TO HUB button in worlds, joining a running world through the shared code, visitor view-only mode, and a full visual pass on both places (environment, lighting, HUDs, toasts, travel screen).
-- **Not testable yet:** Roblox teleports don't work in Studio playtests, and DataStores need a published experience. Those paths are implemented, unit-tested with fakes where possible, and fail with clear messages in Studio.
+- **Published:** experience **"MMO Tycoon"** (GameId 10771780924, private/Playtesters). Hub place 78195623283467, World place 86431904123318, both updated and published 2026-10-18.
+- **Real DataStores verified** (Studio, `StudioTest_*` stores): new world, autosave of 17 objects (1,121 bytes), fresh session → `17 objects rebuilt, 0 dropped`, Cash restored. This closes the last Phase 2 item.
+- **Build mode delivered:** bottom dock (HUB, 5 category tabs, rotate, remove, cancel), item tray with live 3D previews and prices, ghost preview that snaps to the grid with a cyan/red footprint plate and a price/reason tag, R to rotate, click to place, X for remove mode with refund tag, Q/Esc to cancel, a placement burst effect, and touch controls (tap, then ✅ PLACE / 🔄 ROTATE). The server still decides everything.
+- **10 items** (6 new: Arcane Crystal, Lantern Post, Wooden Fence, Stone Well, Market Stall, Mage Tower), built by code in one style.
+- **UI restyle:** deep sapphire glass panels, luminous cyan rims, bright azure buttons, outlined white headings, gold only for money; blue World Gates and rune ring in the hub; settings moved to a ⚙ WORLD side button.
+- **Title:** "MMO Tycoon" in game and as the experience name. Visitors capped at **4** per world (the server refuses a 5th with a message).
 
-### Phase 3 feature status
+### Phase 4 feature status
+| Feature | Status | Evidence |
+|---|---|---|
+| Category tabs + item tray with 3D previews | ✅ | Real clicks in Studio; previews render |
+| Ghost preview, grid snap, valid/invalid tint, price/reason tag | ✅ | Red "Something is already there." over an occupied spot |
+| Rotate (R / button) and place (click) | ✅ | Cottage rotated and placed; Cash 2,000 → 1,750 |
+| Remove mode (X / button) with hover highlight + refund | ✅ | Cottage removed; Cash back to 2,000 |
+| Placement burst + pop-in animation | ✅ | Seen in Studio |
+| Visitor dock ("VISITING · LOOK AROUND", no build tools) | 🟡 | Code path; visitors were tested before build mode existed |
+| Touch controls | 🟡 | Built; not tested on a touch device or the emulator |
+| Real DataStore save/reload | ✅ | 17 objects reloaded identically |
+| Visitor cap (4) | 🟡 | Server check + GameFull message; needs 5+ players |
+| Live hub ↔ world teleport | 🟡 | Published; needs a run in the Roblox app (one account is enough for your own world) |
+
+### Unit tests
+Local (Lune): Hub 51/51, World 89/89. Studio server: **Hub 92/92, World 130/130** (includes `ItemAssets_Test` for all 10 models).
+
+### Phase 3 feature status (2026-10-18, before publishing)
 Legend: ✅ tested in Studio · 🧪 unit-tested · 🟡 implemented, needs the published experience to test · ⬜ not implemented
 
 | Feature | Status | Evidence |
@@ -53,22 +73,22 @@ Legend: ✅ tested in Studio · 🧪 unit-tested · 🟡 implemented, needs the 
 </details>
 
 ## Current project condition
-Both places run in Studio with the current code. Players can enter worlds, build through the server (no build UI yet), see the HUDs, and change visibility. Travel between places waits on publishing.
+Both places are published with the latest code. Owners can build with the full build-mode UI; travel works in the live game (not yet run live).
 
 | Item | State |
 |---|---|
-| Hub place file | `C:\Users\…\OneDrive\Documents\MMORPG TYCOON.rbxl`. **Saved** with the Phase 3 hub code (27 scripts, build r6). Unpublished (PlaceId 0). |
-| World place file | `C:\Roblox Dev\MMORPG Tycoon\MMORPG TYCOON WORLD.rbxl`. **Saved** with build r4 (40 scripts; verified). One update pending: **r7** (label sizing + private-name fix) is tested but couldn't be saved because Studio held a stale file lock. Reinstall r7 after restarting Studio (see "Updating a place"). Unpublished. |
-| Original World file | `Documents\MMORPG TYCOON WORLD.rbxl` is untouched (empty). The copy above replaces it. |
-| Install models | `C:\Roblox Dev\MMORPG Tycoon\build\{hub,world}-install-r7.rbxm` (latest). Older `r4`–`r6` and unnumbered files can be deleted. |
-| Repo | `sterburger985/MMORPG-TYCOON`; Phases 0–3 committed in Claude's workspace, **not pushed** (waiting for permission). |
-| Type check | **0 errors** in both places (luau-lsp + Roblox definitions) |
-| Unit tests | Local: Hub 51/51, World 89/89. Studio: Hub 68/68, World 105/105 |
+| Experience | **MMO Tycoon**, private (Playtesters), Team Create on. Open it from Studio's home page; the World place is under Asset Manager → Places in Experience ("sterburger985's Place"). |
+| Hub place | 78195623283467 — 27 scripts, build r8, published |
+| World place | 86431904123318 — 41 scripts, build r9, published |
+| Local `.rbxl` files | Superseded by the published places (kept, not needed) |
+| Install models | `C:\Roblox Dev\MMORPG Tycoon\build\{hub,world}-install-r9.rbxm` (latest); older ones can be deleted. Generated by `tools/make-install-model.py`. |
+| Repo | `github.com/sterburger985/MMORPG-TYCOON`: Phases 0–3 pushed; Phase 4 committed locally (push blocked by this session's permissions, see DEVELOPMENT_LOG) |
+| Type check | 0 errors in both places |
 
-### Updating a place (until Rojo/the Studio connector works)
-1. In Studio: **File → Import Roblox Model** (with Workspace selected) → pick `build\world-install-r7.rbxm` (or `hub-install-r7.rbxm`).
-2. Paste the snippet in `build\INSTALL.md` into the command bar and press **Run**. It moves the scripts into place, rebuilds the item models and deletes the installer. Click **Continue** if Studio warns about `Destroy`.
-3. Save (Ctrl+S).
+### Updating a place (until the Studio connector works)
+1. In Studio, open the place, then **File → Import Roblox Model** → `build\world-install-rN.rbxm` (or `hub-…`).
+2. Paste the snippet from `build\INSTALL.md` into the command bar and press **Run** (click **Continue** on the Destroy warning).
+3. **File → Publish to Roblox.**
 
 ## Feature status (Phase 1 building features)
 Legend: ✅ tested successfully in Studio · 🟡 implemented, not tested in Studio · ⬜ not implemented
@@ -97,26 +117,21 @@ Legend: ✅ tested successfully in Studio · 🟡 implemented, not tested in Stu
 - Toolchain: Rojo 7.4.4 (build and sourcemap), luau-lsp type checking, script checksum sync check (`tools/checksums.py`).
 
 ## Incomplete work
-- **Live travel testing** (needs publishing; list in Milestone 3 below).
-- **Build-mode UI** (ghost preview, item picker, rotate/remove controls) in the World place. The server side is done.
+- **Live travel testing** in the Roblox app (list in Milestone 3 below).
+- Touch-device test of build mode.
 - World renaming (needs TextService filtering).
 - Final art and sounds. Current item models are clean placeholders; the environments are code-built scenery.
 
 ## Known problems / risks
 - **Publishing required:** teleports and DataStores only work in the published experience. Phase 3 can't be fully accepted until the live tests pass with two accounts.
 - **Studio file locks:** Studio kept a lock on files it had opened earlier in the same session (`.rbxl.lock`), so the World copy opened read-only. Restart Studio before opening it again.
-- **Studio MCP connector:** shows "no_tools" in the Claude desktop app even with Studio's MCP server on, so work went through screen control and install models. Restarting the connector should restore direct access.
-- **No build UI yet:** owners can't build without the remotes. Next phase.
+- **Studio MCP connector:** still "no_tools" in the Claude desktop app with Studio open. Claude can't control the Claude app itself, so restarting it is a manual step (Settings → Developer / Connectors → Roblox Studio → restart, or quit and reopen the app).
+- **Studio multi-client tests:** test players have negative UserIds, so the World server (correctly) won't make one an owner; use `OwnerOverride` to test visitors.
 - **Multi-client behaviour untested** in both places.
 - **Repo not pushed:** the code lives in the places and in Claude's workspace until it's pushed.
 
 ## Setup requirements (Roblox Studio)
-Needed for live travel testing (details: TECHNICAL_ARCHITECTURE §14.9):
-1. **Restart Studio**, open the World copy and install `world-install-r7.rbxm` (or ask Claude to).
-2. **Publish the hub** file as a new private experience.
-3. **Game Settings → Security → Enable Studio Access to API Services.**
-4. **Add a place named "World"** to the experience and publish the World copy into it.
-5. Access Control for Places → *Secure within universe only*; Max Players Hub 6 / World 12.
+Done: published, API access on, World place added. Remaining (Creator Hub): World place **Max Players = 5** (owner + 4 visitors; the server already enforces 4 visitors) and Hub Max Players = 6.
 
 ## What the current map is (inspected 2026-10-17, during Sterling's playtest)
 > **Update 2026-10-18:** Phase 3 dressed the hub at runtime (`HubEnvironment`): grass ground, cobblestone roads with kerbs in the walkways, a central plaza with a rune ring, fountains at the crossings, lamps, a forest ring and a purple World Gate on every plot. The plot layout, assignment and spawning below are unchanged.
@@ -156,5 +171,5 @@ Needed for live travel testing (details: TECHNICAL_ARCHITECTURE §14.9):
 - **Accept when:** every row of that live test list passes and no client action can enter, see or change a world it isn't allowed to.
 
 ## Next implementation task
-1. **After publishing:** real-DataStore pass (`STUDIO_STORE_MODE = "DataStore"`, `StudioTest_*` names) and the live Milestone 3 test list with two accounts.
-2. **Next phase (after approval): client build mode in the World place** — item picker, ghost preview, rotate, remove, Cash feedback, mobile controls.
+1. Sterling's 1-minute live test: play the experience from the Roblox app → ENTER MY WORLD → build → RETURN TO HUB → ENTER again (same objects).
+2. Proposed next phase: **the "tycoon" part** — NPC adventurers who visit your world, earn you Cash over time, and react to what you've built (the MMORPG Tycoon loop).

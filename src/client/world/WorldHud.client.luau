@@ -13,7 +13,6 @@ local Net = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Net")
 local player = Players.LocalPlayer
 local remotes = ReplicatedStorage:WaitForChild(Net.FolderName)
 local notify = remotes:WaitForChild(Net.Notify) :: RemoteEvent
-local returnRemote = remotes:WaitForChild(Net.RequestReturnToHub) :: RemoteFunction
 local visibilityRemote = remotes:WaitForChild(Net.RequestSetVisibility) :: RemoteFunction
 
 -- The server sends the world's name only to admitted players (kind "worldname");
@@ -43,15 +42,12 @@ local banner = UI.panel({
 	Position = UDim2.new(0.5, 0, 0, 12),
 	Size = UDim2.new(0, 420, 0, 78),
 })
-local bannerTitle = UI.label({
+local bannerTitle = UI.heading({
 	Parent = banner,
 	Text = "Loading world…",
-	Font = UI.Fonts.title,
-	TextXAlignment = Enum.TextXAlignment.Center,
-	Position = UDim2.new(0, 16, 0, 8),
-	Size = UDim2.new(1, -32, 0, 36),
-	MaxTextSize = 32,
-	TextColor3 = UI.Colors.gold,
+	Position = UDim2.new(0, 16, 0, 6),
+	Size = UDim2.new(1, -32, 0, 40),
+	MaxTextSize = 34,
 })
 local bannerSub = UI.label({
 	Parent = banner,
@@ -64,28 +60,7 @@ local bannerSub = UI.label({
 	MaxTextSize = 15,
 })
 
--- Return button (bottom-left) --------------------------------------------------------
-local returnButton = UI.button({
-	Name = "ReturnToHub",
-	Parent = screen,
-	AnchorPoint = Vector2.new(0, 1),
-	Position = UDim2.new(0, 18, 1, -24),
-	Size = UDim2.new(0, 220, 0, 52),
-	Text = "⟵  RETURN TO HUB",
-	MaxTextSize = 22,
-}, "dark")
-local returning = false
-returnButton.Activated:Connect(function()
-	if returning then
-		return
-	end
-	returning = true
-	pcall(function()
-		returnRemote:InvokeServer()
-	end)
-	task.wait(1.5)
-	returning = false
-end)
+-- (Return to Hub lives in the build dock: BuildMode.client.luau.)
 
 -- Owner-only widgets ------------------------------------------------------------------
 local cashChip: TextLabel? = nil
@@ -98,7 +73,7 @@ local function styleCurrentPill(current: string?)
 		local color = UI.VisibilityColor[value]
 		UI.tween(pill, TweenInfo.new(0.2), { BackgroundTransparency = if active then 0.15 else 0.85 })
 		pill.BackgroundColor3 = color
-		pill.TextColor3 = if active then Color3.fromRGB(24, 18, 34) else UI.Colors.text
+		pill.TextColor3 = if active then UI.Colors.ink else UI.Colors.text
 		pill:FindFirstChildOfClass("UIStroke").Color = color
 	end
 end
@@ -123,18 +98,42 @@ local function buildOwnerWidgets()
 		UI.tween(scale, TweenInfo.new(0.25, Enum.EasingStyle.Back), { Scale = 1 })
 	end)
 
+	-- Side stack (right edge, like a game menu): a square gear button that opens the
+	-- settings pop-out to its left.
+	local gear = UI.button({
+		Name = "SettingsButton",
+		Parent = screen,
+		AnchorPoint = Vector2.new(1, 0.5),
+		Position = UDim2.new(1, -16, 0.42, 0),
+		Size = UDim2.fromOffset(64, 64),
+		Text = "⚙",
+		MaxTextSize = 34,
+		CornerRadius = 14,
+	}, "blue")
+	UI.heading({
+		Parent = gear,
+		AnchorPoint = Vector2.new(0.5, 0),
+		Position = UDim2.new(0.5, 0, 1, 2),
+		Size = UDim2.fromOffset(84, 18),
+		Text = "WORLD",
+		MaxTextSize = 15,
+	})
 	local panel = UI.panel({
 		Name = "Settings",
 		Parent = screen,
-		AnchorPoint = Vector2.new(1, 0),
-		Position = UDim2.new(1, -18, 0, 116),
-		Size = UDim2.new(0, 230, 0, 150),
+		AnchorPoint = Vector2.new(1, 0.5),
+		Position = UDim2.new(1, -94, 0.42, 0),
+		Size = UDim2.new(0, 240, 0, 156),
+		Visible = false,
 	})
+	gear.Activated:Connect(function()
+		panel.Visible = not panel.Visible
+	end)
 	settingsPanel = panel
 	UI.padding(14).Parent = panel
-	UI.label({ Parent = panel, Text = "WORLD SETTINGS", Font = UI.Fonts.bold, TextColor3 = UI.Colors.gold, Size = UDim2.new(1, 0, 0, 14), MaxTextSize = 13 })
-	UI.label({ Parent = panel, Text = "Who can visit?", TextColor3 = UI.Colors.sub, Position = UDim2.new(0, 0, 0, 18), Size = UDim2.new(1, 0, 0, 14), MaxTextSize = 13 })
-	local list = UI.new("Frame", { Parent = panel, BackgroundTransparency = 1, Position = UDim2.new(0, 0, 0, 38), Size = UDim2.new(1, 0, 1, -38) }, {
+	UI.heading({ Parent = panel, Text = "WORLD SETTINGS", TextXAlignment = Enum.TextXAlignment.Left, TextColor3 = UI.Colors.glow, Size = UDim2.new(1, 0, 0, 18), MaxTextSize = 17 })
+	UI.label({ Parent = panel, Text = "Who can visit?", TextColor3 = UI.Colors.sub, Position = UDim2.new(0, 0, 0, 22), Size = UDim2.new(1, 0, 0, 14), MaxTextSize = 13 })
+	local list = UI.new("Frame", { Parent = panel, BackgroundTransparency = 1, Position = UDim2.new(0, 0, 0, 42), Size = UDim2.new(1, 0, 1, -42) }, {
 		UI.new("UIListLayout", { Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder }),
 	})
 	for order, value in { Net.Visibility.Public, Net.Visibility.FriendsOnly, Net.Visibility.Private } do

@@ -1,7 +1,7 @@
-# GAME_DESIGN — MMORPG Tycoon (Roblox)
+# GAME_DESIGN — MMO Tycoon (Roblox)
 
-Part of [[MMORPG Tycoon]] · Working title, final name TBD by Sterling.
-Last updated: 2026-10-18 (Phase 3: travel and visiting implemented; see TECHNICAL_ARCHITECTURE §14)
+Part of [[MMORPG Tycoon]] · Title: **MMO Tycoon** (chosen 2026-10-18; "WorldForge" is taken by other projects).
+Last updated: 2026-10-18 (Phase 4: build mode and the blue UI; see TECHNICAL_ARCHITECTURE §15)
 
 > Inspiration: the management and world-building loop of *MMORPG Tycoon 2* (Lazy Bear Games / Pat Wilson). We borrow **general gameplay ideas only** — no assets, code, UI layouts, names, or other protected content.
 
@@ -49,6 +49,7 @@ Reinvest Cash ◄── Subscription revenue ◄── Satisfaction & feedback
 - **Cohesion over quantity:** one consistent palette and material set, locked in during the asset phase (Phase 3). Ten polished objects beat fifty mismatched ones.
 - **Asset sources (quality bar):** custom-built assets only, made with Studio's procedural/mesh generation, Blender (Blender connector available), or hand-built parts. **No unvetted Toolbox free models**, which bring inconsistent style, hidden scripts and backdoors.
 - **World framing:** each plot is a raised "world tile" with a clear edge and a distinct ground biome, so a server reads as a row of separate MMO worlds.
+- **UI colour scheme (Sterling, 2026-10-18): magic-fantasy blue.** Deep sapphire glass panels with a cyan glow rim, bright azure buttons, chunky white headings with a dark-blue outline, gold only for money and rewards. Reference: bright blue square buttons, outlined headings, a bottom tool bar.
 - **Implemented look (Phase 3):** warm afternoon lighting with atmosphere, bloom and sun rays in both places. The hub has cobblestone roads, a central plaza with a glowing rune ring, fountains, iron lamps, a forest ring and a glowing purple **World Gate** on every plot. Worlds have a grass tile with a stone rim and lamps, a ring of trees and rocks, and a golden **Hub Gate**. UI: dark-glass panels with gold trim, a gold primary button, coloured visibility chips, toasts and a full-screen travel screen.
 
 ## 5. Multiplayer design (revised 2026-10-17: persistent worlds)
@@ -159,8 +160,8 @@ The game becomes **one Roblox experience with two places**:
 | 5 | Refund on removal | 100% during the MVP (encourages experimenting); revisit once income exists |
 | 6 | Persistence in the MVP? | **Resolved 2026-10-17: yes.** Persistent worlds are now core. |
 | 7 | Touch controls in the MVP? | Yes (most Roblox players are on mobile) |
-| 8 | Game title | TBD (must not use "MMORPG Tycoon" branding for release) |
+| 8 | Game title | **Resolved: MMO Tycoon** |
 | 9 | Default visibility for new worlds | **Resolved: Public** (Phase 2 brief) |
-| 10 | What happens to visitors when the owner leaves | They may stay until the world empties (alternative: send them to the hub) |
+| 10 | What happens to visitors when the owner leaves | **Resolved: they stay** until the world empties |
 | 11 | What's on a hub plot now that building moves to the World place | **Built (Phase 3):** a World Gate showing the world name, owner and visibility (Private worlds show no details). Later maybe a live preview of the world. |
-| 12 | Max visitors per world | Same as World place Max Players (proposed 12) |
+| 12 | Max visitors per world | **Resolved: 4** (plus the owner) |
