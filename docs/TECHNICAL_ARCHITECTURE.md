@@ -4,6 +4,8 @@ Part of [[MMORPG Tycoon]] · See also [[GAME_DESIGN]], [[PROJECT_STATUS]]
 Last updated: 2026-10-17 (Phase 1). **Status: server side implemented and tested (Phase 1); client side not implemented.** Sections that changed during implementation are marked *(Phase 1)*.
 
 > **2026-10-17 revision:** the game is moving to a **hub place + per-world place** design with persistent, visitable worlds. See **§12**, which supersedes §5 and §9 and the single-server assumptions in §2 and §7. §12 is a plan: not implemented, not tested.
+>
+> **Phase 2 (persistent worlds) implemented:** see **§13** for what was actually built, the saved format, failure handling, concurrency status and test results.
 
 ---
 
@@ -401,3 +403,126 @@ tests/                    + WorldSchema_Test, AccessPolicy_Test, WorldStore_Test
 - **MessagingService:** only when settings must change from outside the world (for example from the hub) while the world is running.
 - **ProfileStore:** reconsider if the hand-written lock in 12.6 proves fragile in live tests.
 - **Global public-world browser:** needs an OrderedDataStore or MemoryStore index. It comes after Milestone 3.
+
+---
+
+## 13. Phase 2 implementation: persistent worlds (2026-10-17)
+
+**Status legend:** ✅ tested successfully · 🧪 tested by unit tests only (real code, local Luau runtime, fake DataStore) · 🟡 implemented, not tested in Roblox Studio · ⬜ not implemented.
+
+### 13.1 What changed from the §12 plan, and why
+- **One record per world instead of separate Meta and Data stores.** In Phase 2 the only writer is the World server holding the lock, and settings are only changed from inside the world. A single record is simpler and fully atomic. A small separate Meta key (for the hub to write the reserved-server access code) will be added in the travel phase, as planned in §12.4. 🟡
+- **Visibility values are `Public`, `FriendsOnly`, `Private`** (Phase 2 brief), not "Friends".
+- The World place reuses the hub's `PlacementService` and `EconomyService` **unchanged in behaviour**, through world versions of `PlotService` and `PlayerDataService` with the same interface. `PlacementService` gained two additive functions (`restore`, `onChanged`).
+
+### 13.2 Code map
+| File (repo) | Instance in place | Place |
+|---|---|---|
+| `src/shared/*` | `ReplicatedStorage.Shared.*` | Hub + World |
+| `src/common/server/Services/{PlacementService,EconomyService}.luau` | `ServerScriptService.Server.Services.*` | Hub + World |
+| `src/common/server/Util/RateLimiter.luau` | `ServerScriptService.Server.Util.RateLimiter` | Hub + World |
+| `src/hub/server/Main.server.luau`, `Services/{PlotService,PlayerDataService}.luau` | `ServerScriptService.Server.*` | Hub |
+| `src/world/server/Main.server.luau` | `ServerScriptService.Server.Main` | World |
+| `src/world/server/Services/WorldConfig.luau` | settings: store names (Studio namespace), intervals, limits | World |
+| `…/WorldSchema.luau` | saved format v1, validation, migration hook, profile conversion | World |
+| `…/WorldStore.luau` | DataStore access: `UpdateAsync`, session lock, retries, size check | World |
+| `…/WorldLoader.luau` | load decision: ready / readonly / failed | World |
+| `…/WorldSessionService.luau` | owner → load → rebuild → spawn → autosave → shutdown save; visibility remote | World |
+| `…/OwnerResolver.luau` | whose world (reserved server index live; first player in Studio) | World |
+| `…/WorldState.luau` | this server's world state (owner, status, profile, dirty counter) | World |
+| `…/PlotService.luau`, `…/PlayerDataService.luau` | world versions of the hub interfaces | World |
+| `…/StudioDevStore.luau` | **Studio-only** stand-in DataStore (`ServerStorage.WorldDevStore`) | World |
+| `tests/common/*`, `tests/world/*` | `ServerStorage.UnitTest.Cases.*` | Hub: common; World: common + world |
+| `hub.project.json`, `world.project.json` | Rojo projects, one per place | — |
+| `tools/check.sh`, `tools/run-tests.luau` | per-place build + type check; local Luau test runner (Lune) | dev |
+
+### 13.3 Saved world format (version 1) 🧪
+Key: `world_<OwnerUserId>` in DataStore `Worlds_v1` (live) or `StudioTest_Worlds_v1` (Studio, so tests never touch live data).
+```lua
+{
+  Version = 1,
+  OwnerUserId = 1586031803,
+  WorldName = "My MMORPG",                  -- 1..50 chars; default when unset or invalid
+  Settings = { Visibility = "Public" },     -- Public | FriendsOnly | Private
+  Economy = { Cash = 2000 },                -- persisted so Cash and objects stay consistent
+  Objects = {                               -- grid-native: same data the placement system uses
+    { Id = "p1", Type = "oak_tree", X = 10, Z = 10, Rot = 0 },  -- X/Z cells 0..63, Rot quarter turns 0..3
+  },
+  NextObjectId = 2,
+  CreatedAt = 1760745600,
+  Quarantine = { { Reason = "unknown_type", Data = { Id = "p9", Type = "old_item" } } },
+  -- managed by WorldStore:
+  Session = { Id = "<GUID>", Time = 1760745660 },   -- the session lock (nil when released)
+  SaveCount = 17,
+  UpdatedAt = 1760745660,
+}
+```
+- **Position and rotation** are stored as grid cell + quarter turns, not studs or degrees. The world position is always computed by `GridMath`, so a save can't place anything off-grid or off the plot.
+- **Approved assets only:** `Type` must be an `ItemCatalog` id; the model comes from `ReplicatedStorage.Assets.Items`. Saved data can never name an asset id or code.
+- **Unknown fields** are ignored and not re-saved. **Invalid objects** go to `Quarantine` (bounded to 100, primitives only) and are never built. They aren't silently erased, so a future fix can recover them.
+- **Versioning:** a record with a higher `Version` than the code knows is refused (never overwritten). Older versions pass through `migrate()` steps (only v1 exists today).
+- **Size:** about 45 bytes per object. The object cap is 400 (`Config.MAX_PLACED_PER_PLOT`), roughly 18 KB. Saves above 3 MB are refused (hard limit 4 MB).
+
+### 13.4 Ownership 🧪 / 🟡
+- The owner is a **UserId** resolved on the server by `OwnerResolver`. Clients have no way to choose it.
+  - **Live:** the World place must run as a reserved server. The owner comes from `WorldIndex_v1/ps_<PrivateServerId>`, written by the hub in the travel phase. Missing or invalid → **no world loads** (fail closed). 🟡 *(the hub side doesn't exist yet, so live World servers currently refuse to load: intended)*
+  - **Studio:** the first player to join is the owner, or `ServerStorage.WorldDevStore.OwnerOverride` (server-only attribute) for testing other owners. 🟡
+- `WorldSchema.decode` refuses a record whose `OwnerUserId` differs from the resolved owner, and `WorldStore` won't even lock such a record. One player's data **can't** be loaded into another's world. 🧪
+
+### 13.5 Loading workflow 🧪 (logic) / 🟡 (in-game)
+1. `Players.CharacterAutoLoads = false`, so nobody spawns early.
+2. Resolve and validate the owner.
+3. `WorldStore:load` via `UpdateAsync`: **nil** → create the default world and take the lock (`new`); valid record → take the lock (`loaded`); fresh lock held by someone else → `locked`; wrong owner or newer version → `unsafe` (nothing written); throw → retried with backoff 1/2/4 s, then `error`.
+4. `WorldLoader`: if `locked`, wait up to 35 s (an old server may be finishing its shutdown save). Then decide: **ready** (lock held), **readonly** (valid but locked elsewhere), or **failed** (error/unsafe/corrupt; our lock released, record untouched).
+5. Rebuild objects on the starter plot with `PlacementService.restore` (placement rules re-checked; nothing charged).
+6. Mark the world live, set public plot attributes (`OwnerUserId`, `WorldName`, `Visibility`, `WorldStatus`), then spawn players. **Failed** → players are kicked with a "nothing was lost, try again" message and nothing is saved.
+7. Runs **once** per server. There's no reload path, so no duplicate objects.
+
+### 13.6 Saving workflow 🧪 (store) / 🟡 (session)
+- **Dirty tracking:** `PlacementService.onChanged` and visibility changes bump `WorldState.changeCount`; a save records the count it captured.
+- **When:** autosave check every **60 s** (writes only if dirty, or to refresh the lock every 120 s); when the **owner leaves**; on **`BindToClose`** (final save that **releases the lock**). Visitors never cause writes. At most about 1 write per minute per world, far inside the DataStore budget (60 + 40 × players per minute per server).
+- **How:** `UpdateAsync` that writes only if **we still hold the lock** and the owner matches; refreshes the lock; `SaveCount += 1`.
+- **Failure handling:**
+
+| Situation | Behaviour |
+|---|---|
+| DataStore error on load | retried; then world **fails to open**, players told to retry, **nothing saved** |
+| Record belongs to another owner / newer version / corrupt | world fails to open; record **untouched** (lock released if we took it) |
+| Another live session holds the lock | wait up to 35 s; then open **read-only** (no saves, no building) |
+| Some saved objects invalid | world opens; bad objects quarantined, logged, not built; the cleaned world is saved |
+| DataStore error on save | retried; then logged, **stays dirty**, next autosave tries again; the last good save remains |
+| Lock lost / record deleted during the session | save refused; world switches to **read-only** |
+| Record won't serialize or exceeds 3 MB | save refused before any DataStore call; logged; stays dirty |
+| Server shutting down | final save inside the 30-second `BindToClose` window; if it fails, the last good save stands |
+
+### 13.7 Concurrency: what is and isn't handled
+| Scenario | Status |
+|---|---|
+| Two sessions load the same world | **Handled:** the second gets `locked` → waits → read-only. Unit tested 🧪. In production, reserved servers make this rare (Roblox runs one instance per access code); it mainly happens during shutdown/startup overlap. |
+| Two sessions save the same world | **Handled:** only the lock holder's `UpdateAsync` writes; the other gets `lock_lost` and goes read-only 🧪 |
+| Server closes mid-save | **Partly:** `UpdateAsync` is atomic per key (all or nothing). The final save runs in `BindToClose`. A crash before it means changes since the last save (≤ 60 s) are lost, and the lock stays until it goes stale (5 min), during which a new session opens read-only. |
+| Player enters a world that's already active | **Not implemented** (travel phase): the plan is the same reserved-server code, so they join the running session (§12.2). |
+| Clock skew between servers | lock staleness uses `os.time()`; minutes-level tolerance makes small skew harmless. Not tested. |
+
+### 13.8 Visibility 🟡
+Stored in `Settings.Visibility` (default **Public**). Changed only via `RequestSetVisibility` (RemoteFunction, World place). The server checks rate limit → world live → caller is owner → world writable → value is one of the three. Stored ≠ enforced: **nobody but the owner can enter a live World server yet** (non-owners are kicked live). Entry checks using visibility arrive with travel (§12.8).
+
+### 13.9 Current limits
+- 1 world per server, one 64 × 64-cell plot, max 400 objects.
+- No hub ↔ world travel; live World servers can't learn their owner yet (by design, until travel).
+- No visitors (Studio-only test visitors, view only).
+- World names can't be changed yet (no rename remote; it needs TextService filtering).
+- Not yet verified with real DataStores (experience unpublished).
+
+### 13.10 Manual setup required (Sterling)
+1. **Publish the hub:** open `MMORPG TYCOON.rbxl` → File → Publish to Roblox → create the experience (keep it private). It becomes the start place.
+2. **Enable Studio API access:** Home → Game Settings → Security → **Enable Studio Access to API Services** → Save.
+3. **Create the World place:** Creator Dashboard → your experience → **Places** → **Add Place** (or in Studio: View → Asset Manager → Places → right-click → Add New Place). Name it **World**. Open it in Studio (double-click in Asset Manager) and keep that Studio window open.
+   - *Before publishing, as a stop-gap:* File → New → Baseplate, save as `MMORPG TYCOON World.rbxl`, keep it open. Claude can build and test everything except real DataStores and teleports there, then you publish it into the experience as the World place.
+4. **Access control:** Creator Dashboard → experience → Access Settings → **Access Control for Places** → *Secure within universe only* (needed before travel).
+5. Max Players: Hub 6; World 12 (proposed).
+6. Once steps 1–3 are done, Claude syncs the World scripts and assets into the World place, switches `STUDIO_STORE_MODE` to `"DataStore"` for a real-DataStore pass (namespace `StudioTest_*`), and runs the Studio tests in §13.11.
+
+### 13.11 Testing
+- **Done:** type check of both places (0 errors); Rojo build of both places; **72/72 unit tests** in a local Luau runtime (Lune) against the Rojo-built World place, and 34/34 for the Hub (the engine-dependent ItemAssets suite is skipped locally; it passed in Studio in Phase 1). These cover Tests A–F at the store/loader level with a fake DataStore.
+- **Not yet done (needs the World place open in Studio):** run the same suites inside Studio; session-level Tests A–F with the Studio dev store (new world → place → save → copy the saved JSON into Edit → Play again → identical; invalid JSON; `FailMode=all`; `OwnerOverride` for a second owner); real DataStore pass after publishing; live reserved-server owner resolution (travel phase).

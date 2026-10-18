@@ -1,0 +1,33 @@
+{
+  "name": "MMORPGTycoon-World",
+  "tree": {
+    "$className": "DataModel",
+    "ReplicatedStorage": {
+      "Shared": { "$path": "src/shared" }
+    },
+    "ServerScriptService": {
+      "Server": {
+        "$className": "Folder",
+        "Main": { "$path": "src/world/server/Main.server.luau" },
+        "Services": {
+          "$path": "src/world/server/Services",
+          "EconomyService": { "$path": "src/common/server/Services/EconomyService.luau" },
+          "PlacementService": { "$path": "src/common/server/Services/PlacementService.luau" }
+        },
+        "Util": { "$path": "src/common/server/Util" }
+      }
+    },
+    "ServerStorage": {
+      "UnitTest": {
+        "$className": "Folder",
+        "RunUnitTest": { "$path": "tests/RunUnitTest.luau" },
+        "Cases": {
+          "$path": "tests/common",
+          "WorldSchema_Test": { "$path": "tests/world/WorldSchema_Test.luau" },
+          "WorldStore_Test": { "$path": "tests/world/WorldStore_Test.luau" },
+          "WorldLoader_Test": { "$path": "tests/world/WorldLoader_Test.luau" }
+        }
+      }
+    }
+  }
+}

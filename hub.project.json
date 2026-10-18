@@ -1,0 +1,30 @@
+{
+  "name": "MMORPGTycoon-Hub",
+  "tree": {
+    "$className": "DataModel",
+    "ReplicatedStorage": {
+      "Shared": { "$path": "src/shared" }
+    },
+    "ServerScriptService": {
+      "Server": {
+        "$className": "Folder",
+        "Main": { "$path": "src/hub/server/Main.server.luau" },
+        "Services": {
+          "$className": "Folder",
+          "PlayerDataService": { "$path": "src/hub/server/Services/PlayerDataService.luau" },
+          "PlotService": { "$path": "src/hub/server/Services/PlotService.luau" },
+          "EconomyService": { "$path": "src/common/server/Services/EconomyService.luau" },
+          "PlacementService": { "$path": "src/common/server/Services/PlacementService.luau" }
+        },
+        "Util": { "$path": "src/common/server/Util" }
+      }
+    },
+    "ServerStorage": {
+      "UnitTest": {
+        "$className": "Folder",
+        "RunUnitTest": { "$path": "tests/RunUnitTest.luau" },
+        "Cases": { "$path": "tests/common" }
+      }
+    }
+  }
+}

@@ -14,6 +14,15 @@ local Reason = table.freeze({
 	LimitReached = "LimitReached",
 	InsufficientFunds = "InsufficientFunds",
 	Internal = "Internal",
+	NotReady = "NotReady",
+	ReadOnly = "ReadOnly",
+})
+
+-- World visibility values (stored in world saves; enforced by servers in the travel phase).
+local Visibility = table.freeze({
+	Public = "Public",
+	FriendsOnly = "FriendsOnly",
+	Private = "Private",
 })
 
 -- Player-facing text for each reason (used by the build UI's error toasts).
@@ -29,12 +38,19 @@ local Message = table.freeze({
 	LimitReached = "Your world is full. Remove something first.",
 	InsufficientFunds = "Not enough Cash.",
 	Internal = "Something went wrong. Please try again.",
+	NotReady = "Your world is still loading.",
+	ReadOnly = "This world can't be changed right now.",
 })
 
 export type PlaceResult = {
 	ok: boolean,
 	reason: string?,
 	placedId: string?,
+}
+
+export type SettingsResult = {
+	ok: boolean,
+	reason: string?,
 }
 
 export type RemoveResult = {
@@ -47,7 +63,9 @@ local Net = table.freeze({
 	FolderName = "Remotes",
 	RequestPlace = "RequestPlace",
 	RequestRemove = "RequestRemove",
+	RequestSetVisibility = "RequestSetVisibility", -- World place only
 	Reason = Reason,
+	Visibility = Visibility,
 	Message = Message,
 })
 

@@ -24,11 +24,19 @@ local Reason = Net.Reason
 
 local limiter = RateLimiter.new(Config.RATE_LIMIT_PER_SEC, Config.RATE_LIMIT_BURST)
 local itemsFolder: Instance
+local changeListeners: { () -> () } = {}
 
 local PlacementService = {}
 
 local function fail(reason: string): Net.PlaceResult
 	return { ok = false, reason = reason }
+end
+
+-- Tell listeners (e.g. the World place's save system) that the world changed.
+local function notifyChanged()
+	for _, listener in changeListeners do
+		task.spawn(listener)
+	end
 end
 
 -- Clone the item's template, configure it and put it on the plot.
@@ -108,6 +116,7 @@ function PlacementService.place(player: Player, itemId: any, x: any, z: any, rot
 		return fail(Reason.Internal)
 	end
 
+	notifyChanged()
 	return { ok = true, placedId = placedId }
 end
 
@@ -145,7 +154,39 @@ function PlacementService.remove(player: Player, placedId: any): Net.RemoveResul
 	end
 	local refund = math.floor(item.price * Config.REFUND_RATE)
 	EconomyService.grant(player, refund)
+	notifyChanged()
 	return { ok = true, refund = refund }
+end
+
+-- Rebuild one saved object without charging anyone (World place loading).
+-- The record must already be validated by WorldSchema; the placement rules are
+-- checked again here so a bad record can never overlap or leave the plot.
+function PlacementService.restore(plot: PlotService.Plot, itemId: string, x: number, z: number, rot: number, placedId: string): (boolean, string?)
+	local argsOk, argsReason = PlacementRules.validatePlaceArgs(itemId, x, z, rot)
+	if not argsOk then
+		return false, argsReason
+	end
+	local item = ItemCatalog.get(itemId)
+	if item == nil then
+		return false, Reason.BadItem
+	end
+	local ok, reason = PlacementRules.check(plot.state, item, x, z, rot, math.huge, Config.PLOT_CELLS, Config.MAX_PLACED_PER_PLOT)
+	if not ok then
+		return false, reason
+	end
+	PlacementRules.occupy(plot.state, item, x, z, rot, Config.PLOT_CELLS, placedId)
+	local spawned, err = pcall(spawnModel, plot, item, x, z, rot, placedId)
+	if not spawned then
+		PlacementRules.vacate(plot.state, item, x, z, rot, Config.PLOT_CELLS)
+		warn(`[PlacementService] restore failed for {placedId} {itemId}: {err}`)
+		return false, Reason.Internal
+	end
+	return true, nil
+end
+
+-- Register a callback fired (in its own thread) after every successful place or remove.
+function PlacementService.onChanged(listener: () -> ())
+	table.insert(changeListeners, listener)
 end
 
 -- Drop per-player state when they leave.

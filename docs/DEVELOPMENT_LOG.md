@@ -4,6 +4,56 @@ Part of [[MMORPG Tycoon]] · Newest entry at the top.
 
 ---
 
+## 2026-10-17 (late) — Phase 2: Persistent worlds and world loading
+
+### Inspection (before any change)
+| Question | Finding |
+|---|---|
+| Phase 0 docs | All four exist (GAME_DESIGN, PROJECT_STATUS, TECHNICAL_ARCHITECTURE, DEVELOPMENT_LOG) and were read |
+| Plots work? | Yes (tested in Phase 1), created at runtime by the hub PlotService |
+| Building and placement | Server side yes (`PlacementService`, tested); **no client build UI** |
+| Place and remove | Yes, through remotes (tested in Phase 1) |
+| Economy | Yes, in-memory Cash (`EconomyService`) |
+| Player data saved? | **No.** In memory only |
+| Sync workflow | Rojo-layout repo + Studio connector writes + checksum check; Rojo not running locally |
+| World place exists? | **No.** One place only; **unpublished** (PlaceId 0, GameId 0). DataStore probe: *"You must publish this place to the web to access DataStore."* |
+| Reusable scripts | Shared modules, PlacementService, EconomyService, RateLimiter, test harness |
+| Phase 1 enough? | Yes for the server side. The missing client UI doesn't block persistence. |
+Sterling was in a playtest in the hub throughout, so the hub was inspected read-only and **not modified**.
+
+### What was built
+- Repo restructured for two places: `src/shared` (both), `src/common/server` (PlacementService, EconomyService, RateLimiter: both), `src/hub/server`, `src/world/server`; `hub.project.json`, `world.project.json`. Hub instance paths are unchanged.
+- World place server: `WorldConfig`, `WorldSchema` (format v1 + validation + migration hook), `WorldStore` (UpdateAsync, session lock, bounded retries, size/encode checks), `WorldLoader`, `WorldSessionService`, `OwnerResolver`, `WorldState`, world `PlotService` and `PlayerDataService` adapters, `StudioDevStore` (Studio-only test store), `Main`.
+- Shared/common, additive only: `Net` (+`Visibility`, `RequestSetVisibility`, `NotReady`/`ReadOnly` reasons, `SettingsResult`), `PlacementService` (+`restore`, +`onChanged`).
+- Tests: `WorldSchema_Test` (12), `WorldStore_Test` (17), `WorldLoader_Test` (9).
+- Tools: `tools/check.sh` (Rojo build + luau-lsp type check per place), `tools/run-tests.luau` (runs the real test suites outside Studio with Lune 0.8.9).
+
+### Decisions
+- One record per world (settings + objects + Cash + lock); the hub-written Meta key waits for the travel phase. *Why:* single writer in Phase 2, fully atomic.
+- Grid-native object format (cell + quarter turns), matching the placement system.
+- Persist Cash with the objects. *Why:* otherwise rejoining would hand out free money (refunds on persisted objects).
+- Invalid saved objects are quarantined, not deleted.
+- Studio uses the `StudioTest_*` DataStore namespace, or the in-place dev store, so testing can never touch live data.
+- Live World servers fail closed until the hub writes the reserved-server index (travel phase).
+
+### Problems found and fixed
+- Type checker: `Player:LoadCharacter` is deprecated → switched to `LoadCharacterAsync` (pcall-wrapped).
+- Test bug: a `{ Version = nil }` override doesn't remove a key in a Lua table constructor → the test now sets `record.Version = nil` explicitly.
+- Local runner needed engine datatypes (`CFrame`, `Vector3`) injected → added.
+- Self-review: with `CharacterAutoLoads` off, players would never respawn after dying in a world → added an explicit respawn after `Players.RespawnTime` (only while the world is live). Not tested in Studio yet.
+
+### Testing performed
+- `tools/check.sh`: **Hub and World build OK, 0 type errors.**
+- Local Luau runtime (Lune), real modules from the Rojo-built places, fake DataStore: **World 72/72 passed; Hub 34/34 passed** (ItemAssets suite skipped locally; it needs engine model APIs and passed in Studio in Phase 1).
+- These cover Phase 2 Tests **A** (new world), **B/E** (save → new session → identical), **C** (invalid data quarantined), **D** (outage → failed, nothing written), **F** (two owners isolated), plus lock contention, stale-lock takeover, wrong owner, future version, corrupt record, oversized and unencodable saves.
+
+### Testing still required
+- **Everything in Studio** (blocked: no World place, unpublished): run all suites in Studio; session-level A–F using the dev store (new world → place → save → copy saved JSON into Edit → Play → identical; invalid JSON; `FailMode=all`; `OwnerOverride`); real-DataStore pass in the `StudioTest_*` namespace after publishing.
+- **Test G (missing World place):** documented the manual setup (TECHNICAL_ARCHITECTURE §13.10). The multi-place workflow is **not** tested.
+- Sync the additive `Net`/`PlacementService` changes into the hub and re-run hub tests in Studio.
+
+---
+
 ## 2026-10-17 (evening) — Architecture revision: persistent player worlds (inspect and plan only)
 
 ### Request

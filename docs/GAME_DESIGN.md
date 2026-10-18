@@ -1,7 +1,7 @@
 # GAME_DESIGN — MMORPG Tycoon (Roblox)
 
 Part of [[MMORPG Tycoon]] · Working title, final name TBD by Sterling.
-Last updated: 2026-10-17 (revised for persistent player worlds; hub-and-world design)
+Last updated: 2026-10-17 (Phase 2: persistent worlds implemented; see TECHNICAL_ARCHITECTURE §13)
 
 > Inspiration: the management and world-building loop of *MMORPG Tycoon 2* (Lazy Bear Games / Pat Wilson). We borrow **general gameplay ideas only** — no assets, code, UI layouts, names, or other protected content.
 
@@ -72,12 +72,14 @@ The game becomes **one Roblox experience with two places**:
 
 **Visibility (owner-controlled, enforced by servers only)**
 - **Public:** anyone can visit.
-- **Friends Only:** only the owner's Roblox friends, checked by the server with Roblox's friends API.
+- **FriendsOnly:** only the owner's Roblox friends, checked by the server with Roblox's friends API.
 - **Private:** only the owner.
 - Visitors are **read-only** at first: they can walk and look, but can't build, remove, buy or change settings.
-- **Proposed default for new worlds: Public** (visitors can't change anything, and visiting is the social hook). Sterling to confirm.
+- **Default for new worlds: Public** (confirmed by the Phase 2 brief). New worlds are named "My MMORPG" until renaming exists.
 
 **When the owner leaves their world:** the world is saved immediately. Visitors already inside **may stay and keep exploring** (read-only), and the server closes when the last person leaves. New visitors can still enter while it's running, subject to visibility. *(Alternative Sterling may prefer: send visitors back to the hub when the owner leaves.)*
+
+**What a world saves (Phase 2):** owner, world name, visibility, placed objects (type, grid cell, rotation), and Cash. Cash is saved with the objects so spending and refunds can't be exploited by rejoining. Progression and future NPCs, monsters and quests get their own fields when those systems exist.
 
 **What's deliberately simple at first**
 - Visiting is started from the hub, by choosing **players in the same hub server** (and later, online friends). A global "browse all public worlds" list comes later.
@@ -155,7 +157,7 @@ The game becomes **one Roblox experience with two places**:
 | 6 | Persistence in the MVP? | **Resolved 2026-10-17: yes.** Persistent worlds are now core. |
 | 7 | Touch controls in the MVP? | Yes (most Roblox players are on mobile) |
 | 8 | Game title | TBD (must not use "MMORPG Tycoon" branding for release) |
-| 9 | Default visibility for new worlds | Public (visitors are read-only) |
+| 9 | Default visibility for new worlds | **Resolved: Public** (Phase 2 brief) |
 | 10 | What happens to visitors when the owner leaves | They may stay until the world empties (alternative: send them to the hub) |
 | 11 | What's on a hub plot now that building moves to the World place | A showcase: owner sign, world name, visibility badge, portal pad. Later maybe a live preview. |
 | 12 | Max visitors per world | Same as World place Max Players (proposed 12) |

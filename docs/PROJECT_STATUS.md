@@ -1,12 +1,65 @@
 # PROJECT_STATUS — MMORPG Tycoon (Roblox)
 
-Part of [[MMORPG Tycoon]] · Last updated: 2026-10-17 (persistent-worlds planning)
+Part of [[MMORPG Tycoon]] · Last updated: 2026-10-17 (Phase 2 persistent worlds: code complete, Studio tests pending)
 
 ## Current phase
+**Phase 2: Persistent worlds and world loading. Code complete; Studio testing blocked by setup. Awaiting review.**
+
+Built: the World place's server code (ownership, versioned save format, safe DataStore load/save with a session lock, validated rebuild of saved objects, visibility setting), with unit tests.
+Verified so far: type checks and **72/72 unit tests in a local Luau runtime** (real modules, fake DataStore).
+**Not verified in Roblox Studio yet**, because (1) the experience is **unpublished**, so real DataStores are unavailable (confirmed: "You must publish this place to the web to access DataStore"), and (2) **no World place exists** to load the code into. See "Setup requirements".
+
+Travel, visitors and the hub world showcase are **not started**. They come next, after approval.
+
+### Phase 2 feature status
+Legend: ✅ tested in Studio · 🧪 unit-tested (real code, local Luau/Lune, fake DataStore) · 🟡 implemented, not tested in Studio · ⬜ not implemented
+
+| Feature | Status |
+|---|---|
+| Stable owner identifier (UserId) and key `world_<UserId>` | 🧪 |
+| Versioned world schema v1 (`WorldSchema`) | 🧪 |
+| Validation: unknown types, bad ids, duplicates, bad transforms, out of bounds, overlaps, object cap; quarantine | 🧪 |
+| Owner-mismatch / future-version / corrupt records refused and untouched | 🧪 |
+| `WorldStore`: UpdateAsync load/save, retries, session lock, stale-lock takeover, size and encode checks | 🧪 |
+| Failed load never becomes "new world"; nothing saved over it | 🧪 |
+| Save and reload in a new session restores objects, name, visibility | 🧪 |
+| Owners isolated | 🧪 |
+| `WorldLoader` decisions (ready / readonly / failed) | 🧪 |
+| `WorldSessionService` (owner → load → rebuild → spawn → autosave / owner-leave / shutdown save) | 🟡 |
+| World `PlotService` / `PlayerDataService` adapters (owner-only building) | 🟡 |
+| `PlacementService.restore` / `onChanged` (additive) | 🟡 (type-checked; hub still runs its previous copy) |
+| Visibility stored + `RequestSetVisibility` validation | 🧪 (value check) / 🟡 (remote) |
+| Studio dev store for testing without publishing | 🟡 |
+| Live owner resolution from reserved server (`WorldIndex`) | 🟡 (hub side not built; live World servers fail closed by design) |
+| Hub ↔ World travel, visitor access, world browser | ⬜ (next phase) |
+| Real DataStore verification | ⬜ (blocked: unpublished) |
+
+### Phase 2 acceptance criteria
+| # | Criterion | Met? |
+|---|---|---|
+| 1 | Stable owner identifier | ✅ in code + unit tests |
+| 2 | World-data schema documented | ✅ (TECHNICAL_ARCHITECTURE §13.3) |
+| 3 | World Place architecture established | 🟡 code, projects and docs done; **the place itself doesn't exist yet** (manual step) |
+| 4 | World-loading service exists | 🟡 exists; not run in Studio |
+| 5 | Handles new and existing saves | 🧪 unit level only |
+| 6 | Objects rebuilt from validated records | 🧪 validation; 🟡 in-game rebuild |
+| 7 | Save failures can't erase a valid world | 🧪 |
+| 8 | Data isolated between owners | 🧪 |
+| 9 | Visibility stored and validated | 🧪 / 🟡 |
+| 10 | Manual Studio configuration documented | ✅ (below and §13.10) |
+| 11 | Testing results and limitations documented | ✅ |
+| 12 | PROJECT_STATUS reflects reality | ✅ |
+
+**Verdict:** Phase 2 is **not fully accepted yet.** Criteria 3–6 still need an in-Studio run, which is blocked on the manual setup steps.
+
+<details><summary>Previous phase notes (architecture revision and Phase 1)</summary>
+
 **Architecture revision: persistent, visitable player worlds (planning done, awaiting approval).**
 Sterling changed the multiplayer design on 2026-10-17: every player owns a persistent world, and the game becomes a **Hub place** (the current map) plus a **World place** (one server per active world). The plan is in TECHNICAL_ARCHITECTURE §12 and the milestones below. **Nothing in this revision is implemented or tested yet.**
 
 Phase 1 (server foundation) is complete and tested. The planned "Phase 2 — client build mode" is **paused** and will be built in the World place after Milestone 2.
+
+</details>
 
 ## Current project condition
 The server side of building works and has been tested in Studio: plots, the grid, Cash, and server-validated placement and removal. **There is no player-facing build UI yet.** Players get a plot and walk around it, but the only way to place objects right now is to call the remotes directly (the Studio connector does this for testing). The UI arrives in Phase 2.
@@ -14,12 +67,12 @@ The server side of building works and has been tested in Studio: plots, the grid
 | Item | State |
 |---|---|
 | Place file | `MMORPG TYCOON.rbxl`, saved by Sterling, unpublished (PlaceId 0). **Contains unsaved Phase 1 changes. Press Ctrl+S.** |
-| Scripts in place | 16 (11 game scripts + 5 test modules). All 16 match the repo byte-for-byte (checksum verified). |
-| Repo | `sterburger985/MMORPG-TYCOON`. Phase 0 and 1 work is committed in Claude's workspace but **not pushed**. |
+| Scripts in the hub place | 16, matching the Phase 1 repo. The Phase 2 additive changes to `Net` and `PlacementService` are **not synced to the hub yet** (Studio was in a playtest); the hub keeps working on its Phase 1 copies. |
+| Repo | `sterburger985/MMORPG-TYCOON`. Restructured in Phase 2 into `src/shared`, `src/common`, `src/hub`, `src/world` with `hub.project.json` / `world.project.json`. Phases 0–2 committed in Claude's workspace, **not pushed**. |
 | Type check | `luau-lsp analyze` with Roblox definitions: **0 errors** on all source and test files |
 | Unit tests | **51 / 51 passing** in Studio Play |
 
-## Feature status
+## Feature status (Phase 1 building features)
 Legend: ✅ tested successfully in Studio · 🟡 implemented, not tested in Studio · ⬜ not implemented
 
 | MVP feature | Status | Evidence / notes |
@@ -61,9 +114,12 @@ Legend: ✅ tested successfully in Studio · 🟡 implemented, not tested in Stu
 - **Repo not pushed:** the code lives in the place and in Claude's workspace until it's pushed to GitHub.
 
 ## Setup requirements (Roblox Studio)
-1. **Save the place now** (Ctrl+S) to keep the Phase 1 scripts and models.
-2. Keep Studio open, **visible** (not minimised) and with the MCP connector on while Claude works.
-3. Later: publish, set Max Players = 6, and enable Studio Access to API Services (needed for persistence).
+Needed to finish Phase 2 testing (details: TECHNICAL_ARCHITECTURE §13.10):
+1. **Publish** the hub (File → Publish to Roblox, private).
+2. **Game Settings → Security → Enable Studio Access to API Services.**
+3. **Add the World place** (Creator Dashboard → Places → Add Place, or Asset Manager → Places → Add New Place), open it in Studio and leave it open. *Stop-gap before publishing:* File → New → Baseplate, save as `MMORPG TYCOON World.rbxl`, keep it open.
+4. Later (travel): Access Control for Places → *Secure within universe only*; Max Players Hub 6 / World 12.
+5. Save the hub after Claude syncs the additive shared-code changes (`Net`, `PlacementService`) into it.
 
 ## What the current map is (inspected 2026-10-17, during Sterling's playtest)
 - **Saved in the place:** only the template `Baseplate` (2048×2048, grey grid), the default `SpawnLocation` at the origin, `Lighting` and the placeholder item models in `ReplicatedStorage.Assets.Items`.
@@ -75,7 +131,7 @@ Legend: ✅ tested successfully in Studio · 🟡 implemented, not tested in Stu
 - **Places:** one place, unpublished (PlaceId 0), so no multi-place setup and no DataStore access yet.
 - **Sync:** the repo (Rojo layout) is the source of truth; scripts are written into Studio through the connector and checksum-verified. Rojo isn't running locally.
 
-## Milestones for persistent worlds (proposed, awaiting approval)
+## Milestones for persistent worlds (from the planning pass; Phase 2 delivered most of Milestone 2's storage and loading, not travel)
 
 ### Milestone 1 — Prepare the hub for persistent world ownership
 - **Sterling first:** publish the experience (private is fine), enable Studio Access to API Services, set Max Players = 6. (Claude can't publish.)
@@ -101,4 +157,5 @@ Legend: ✅ tested successfully in Studio · 🟡 implemented, not tested in Stu
 - **Accept when:** every row of that live test list passes and no client action can enter, see or change a world it isn't allowed to.
 
 ## Next implementation task
-**Milestone 1**, after Sterling approves the plan and answers the open questions in GAME_DESIGN §9 (rows 9–12), and once the experience is published.
+1. **Finish Phase 2 verification** once the World place is open: sync scripts and assets, run all suites in Studio, run the session-level Tests A–F with the dev store, then a real-DataStore pass after publishing.
+2. Then **Phase 3: travel and visiting** (hub "My World" portal, reserved-server code + index, return to hub, visibility enforcement on entry, joining a running world). Not started; needs approval.
