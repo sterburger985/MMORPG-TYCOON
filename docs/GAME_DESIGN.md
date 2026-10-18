@@ -48,9 +48,31 @@ Reinvest Cash ◄── Subscription revenue ◄── Satisfaction & feedback
 - **Grid-friendly assets:** every object's footprint snaps cleanly to the 4-stud grid. Bases are flat and sit flush on the ground.
 - **Cohesion over quantity:** one consistent palette and material set, locked in during the asset phase (Phase 3). Ten polished objects beat fifty mismatched ones.
 - **Asset sources (quality bar):** custom-built assets only, made with Studio's procedural/mesh generation, Blender (Blender connector available), or hand-built parts. **No unvetted Toolbox free models**, which bring inconsistent style, hidden scripts and backdoors.
-- **World framing:** each plot is a raised "world tile" with a clear edge and a distinct ground biome, so a server reads as a row of separate MMO worlds.
+- **World framing (superseded by §4.1 for the World place):** each plot is a raised "world tile" with a clear edge and a distinct ground biome, so a server reads as a row of separate MMO worlds.
 - **UI colour scheme (Sterling, 2026-10-18): magic-fantasy blue.** Deep sapphire glass panels with a cyan glow rim, bright azure buttons, chunky white headings with a dark-blue outline, gold only for money and rewards. Reference: bright blue square buttons, outlined headings, a bottom tool bar.
 - **Implemented look (Phase 3):** warm afternoon lighting with atmosphere, bloom and sun rays in both places. The hub has cobblestone roads, a central plaza with a glowing rune ring, fountains, iron lamps, a forest ring and a glowing purple **World Gate** on every plot. Worlds have a grass tile with a stone rim and lamps, a ring of trees and rocks, and a golden **Hub Gate**. UI: dark-glass panels with gold trim, a gold primary button, coloured visibility chips, toasts and a full-screen travel screen.
+
+### 4.1 The world map (Phase 5, 2026-10-18)
+Every World place is the same hand-tuned **fantasy continent**: original, inspired by classic fantasy maps but built in a chunky, readable Roblox style. Your build plot sits in the starting meadow of Greenhaven. Each region sets a level band and a mood, and later phases will fill it with monsters, quests and NPC adventurers.
+
+| Lv | Region | Feel | Landmarks |
+|---|---|---|---|
+| 1–10 | Greenhaven Grasslands | rolling meadows, flowers, a river and lake | Elder Oak, your build plot |
+| 11–20 | Whisperwood Forest | dense old forest, mossy logs | Heartroot (giant tree), Forest Ruins |
+| 21–30 | Sunscar Desert | dunes, mesas, cacti, an oasis, a dry wash | Sandstone Arch, Desert Ruins |
+| 31–40 | Mirehollow Swamps | murky pools, reeds, causeways | Drowned Tower |
+| 41–50 | Frostpeak Mountains | ridged peaks, passes, snowcaps | Mountain Shrine, Silver Falls |
+| 51–60 | Verdantwild Jungle | humid hills, palms, a gorge river | Jungle Temple, Jade Falls |
+| 61–70 | Glacial Expanse | ice plateaus, a frozen lake | Ice Spires, Ice Cave |
+| 71–80 | Ashenreach | basalt, steam vents, lava | The Cinder Maw (crater), Ash Fortress |
+| 81–90 | Starfall Highlands | lavender terraces, glowing crystals | Observatory, Giant Crystal |
+| 91–100 | Dragon's End | black jagged peaks | Dragon Citadel, Dragonbones |
+
+Design rules:
+- Borders are organic and blend over about 150 studs; there are no straight lines.
+- Roads lead from the start through every region in level order.
+- Walking into a region shows its name and recommended level, and the sky shifts to its mood.
+- Building happens only on your plot. The continent is permanent scenery for now.
 
 ## 5. Multiplayer design (revised 2026-10-17: persistent worlds)
 
@@ -156,7 +178,7 @@ The game becomes **one Roblox experience with two places**:
 | 1 | Players per server | 6 |
 | 2 | Plot size | 64 × 64 cells (256 × 256 studs) |
 | 3 | Currency name | "Cash" (shown as `$`) |
-| 4 | Starting Cash | 2,000 |
+| 4 | Starting Cash | **5,000** (Sterling, 2026-10-18) |
 | 5 | Refund on removal | 100% during the MVP (encourages experimenting); revisit once income exists |
 | 6 | Persistence in the MVP? | **Resolved 2026-10-17: yes.** Persistent worlds are now core. |
 | 7 | Touch controls in the MVP? | Yes (most Roblox players are on mobile) |

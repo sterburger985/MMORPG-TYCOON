@@ -148,6 +148,21 @@ return function(t)
 	end)
 
 	-- Ids keep counting up even if NextObjectId was lost or too low.
+	-- Old default names (never chosen by a player: renaming didn't exist) become "My World";
+	-- real names are kept.
+	t.test("old default world names are updated, others kept", function()
+		for _, old in Config.OLD_DEFAULT_WORLD_NAMES do
+			local ok, w, report = WorldSchema.decode(record(nil, { WorldName = old }), OWNER)
+			expect.truthy(ok)
+			expect.equal(w.name, "My World")
+			expect.truthy(#report.fixes >= 1)
+		end
+		local ok, w = WorldSchema.decode(record(), OWNER)
+		expect.truthy(ok)
+		expect.equal(w.name, "Test Realm")
+		expect.equal(WorldSchema.newWorld(OWNER, 0).cash, 5000)
+	end)
+
 	t.test("decode keeps nextId above every existing id", function()
 		local ok, w = WorldSchema.decode(record({ obj("p40", "boulder", 1, 1, 0) }, { NextObjectId = 2 }), OWNER)
 		expect.truthy(ok)

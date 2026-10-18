@@ -18,14 +18,15 @@ local Config = {
 	MAX_PLACED_PER_PLOT = 400,
 
 	-- Economy
-	START_CASH = 2000, -- (proposed)
+	START_CASH = 5000, -- Sterling, 2026-10-18 (new worlds; existing worlds keep their balance)
 	REFUND_RATE = 1, -- fraction of the price returned on removal (proposed)
 
 	-- Game
 	GAME_TITLE = "MMO Tycoon",
 
 	-- Worlds
-	DEFAULT_WORLD_NAME = "My MMO",
+	DEFAULT_WORLD_NAME = "My World",
+	OLD_DEFAULT_WORLD_NAMES = { "My MMORPG", "My MMO" }, -- renamed to DEFAULT_WORLD_NAME on load (renaming isn't possible yet, so these were never chosen by a player)
 	MAX_VISITORS = 4, -- visitors per world, on top of the owner (World place Max Players = 5)
 
 	-- Places of the published experience (GameId 10771780924). 0 = find automatically

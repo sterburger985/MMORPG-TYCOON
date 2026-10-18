@@ -48,6 +48,9 @@
             "$path": "tests/world/WorldLoader_Test.luau"
           }
         }
+      },
+      "WorldTools": {
+        "$path": "src/world/tools"
       }
     },
     "StarterPlayer": {
@@ -62,6 +65,9 @@
           },
           "BuildMode": {
             "$path": "src/client/world/BuildMode.client.luau"
+          },
+          "RegionHud": {
+            "$path": "src/client/world/RegionHud.client.luau"
           }
         }
       }

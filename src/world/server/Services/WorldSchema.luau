@@ -177,6 +177,10 @@ function WorldSchema.decode(raw: any, expectedOwner: number): (boolean, World?, 
 
 	if WorldSchema.isValidName(record.WorldName) then
 		world.name = record.WorldName
+		if table.find(Config.OLD_DEFAULT_WORLD_NAMES, record.WorldName) then
+			world.name = WorldConfig.DEFAULT_WORLD_NAME
+			table.insert(report.fixes, "WorldName updated to the new default")
+		end
 	else
 		table.insert(report.fixes, "WorldName reset to default")
 	end

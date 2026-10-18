@@ -1,7 +1,6 @@
 --!strict
--- WorldDecor (World place): scenery around the build area so a fresh world already looks
--- like a place: a seeded ring of trees and rocks on the terrain outside the rim, plus the
--- shared lighting preset. Decoration only (not saved, not buildable, never queryable).
+-- WorldDecor (World place): the shared lighting preset, plus a fallback ring of trees and
+-- rocks for places that don't have the prebuilt continent (Workspace.Continent). Decoration only (not saved, not buildable, never queryable).
 
 local Workspace = game:GetService("Workspace")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -27,6 +26,11 @@ function WorldDecor.build()
 	local old = Workspace:FindFirstChild("WorldDecor")
 	if old then
 		old:Destroy()
+	end
+	if Workspace:FindFirstChild("Continent") then
+		-- The place has the prebuilt continent (WorldTools.ContinentBuilder): no ring needed.
+		LightingPreset.apply()
+		return
 	end
 	local folder = Instance.new("Folder")
 	folder.Name = "WorldDecor"

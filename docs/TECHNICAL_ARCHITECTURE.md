@@ -623,7 +623,7 @@ Status legend as in PROJECT_STATUS: ✅ tested in Studio · 🧪 unit-tested · 
 `UI.Colors`: sapphire panel gradient (28,62,136 → 12,26,64), cyan rim (120,220,255), azure primary (46,156,255), ink outline (8,24,70), gold (255,206,92) reserved for money. `UI.heading` gives white Fredoka text with a dark-blue outline (the reference images' title style). Button styles: blue / gold / dark / danger / ghost. Hub gates and the plaza rune ring use the same arcane blue.
 
 ### 15.4 Config and limits
-`GAME_TITLE = "MMO Tycoon"`, `DEFAULT_WORLD_NAME = "My MMO"`, `MAX_VISITORS = 4` (World server refuses a 5th visitor; World place Max Players should be 5 so the owner always fits), `HUB_PLACE_ID = 78195623283467`, `WORLD_PLACE_ID = 86431904123318`, `WorldConfig.STUDIO_STORE_MODE = "DataStore"` (Studio uses the `StudioTest_*` stores).
+`GAME_TITLE = "MMO Tycoon"`, `DEFAULT_WORLD_NAME = "My MMO"` (Phase 5: now "My World", see §16.5), `MAX_VISITORS = 4` (World server refuses a 5th visitor; World place Max Players should be 5 so the owner always fits), `HUB_PLACE_ID = 78195623283467`, `WORLD_PLACE_ID = 86431904123318`, `WorldConfig.STUDIO_STORE_MODE = "DataStore"` (Studio uses the `StudioTest_*` stores).
 
 ### 15.5 Testing
 - Studio server suites: Hub **92/92**, World **130/130**. Local Lune: Hub 51/51, World 89/89.
@@ -633,3 +633,71 @@ Status legend as in PROJECT_STATUS: ✅ tested in Studio · 🧪 unit-tested · 
 
 ### 15.6 Tooling
 `tools/make-install-model.py hub|world OUT.rbxm` builds the Studio install model straight from the place's Rojo project (so new scripts are never missed). Install steps: `tools/INSTALL-from-rbxm.md`.
+
+---
+
+## 16. Phase 5 implementation: the continent (2026-10-18)
+
+### 16.1 Shape of the solution
+- **Prebuilt, not runtime-generated.** The terrain and scenery are built once, in edit mode, by `ServerStorage.WorldTools.ContinentBuilder` and saved in the World place. Servers never regenerate terrain, so start-up time is unchanged and every server shows exactly the same map.
+- **One source of truth:** `ReplicatedStorage.Shared.RegionConfig` holds all region data: id, name, levels, terrain kind, seed and weight, profile, materials, neighbours, a designed transition per border, landmarks, sites, vegetation, density, atmosphere and sign colour. Roads, rivers, lakes and lava live there too, along with the bounds and coast.
+- **Pure query module:** `Shared.Continent` is deterministic math with no instance reads. Server, client, the builder, the tests and the Lune renderer all use it.
+  - `Continent.column(x, z)` → `{h, water, region, region2, edge, road, river, lake, site, land, crater, lava, ice, …}`
+  - `Continent.regionAt(x, z)` → `{id, name, minLevel, maxLevel, transition, neighborId, onRoad, inWater, site, buildable}`
+  - `Continent.regionIdAt(x, z)` → the cheap form used by the HUD
+  - `planScenery()`, `planBridges()`, `planSigns()` → deterministic placement lists
+- **Separation:** permanent scenery lives in `Workspace.Continent`, which has the attributes `Permanent = true`, `ContinentVersion` and `Fingerprint`. Player objects still live only in `Workspace.WorldPlot`. The save system never reads `Continent`, and the builder never touches `WorldPlot`.
+
+### 16.2 How regions are decided
+1. **Domain warp:** the query point is displaced by two noise octaves (270 studs at 1/620, plus 125 studs at 1/230). This bends every border.
+2. **Weighted Voronoi:** each region's distance is `|p − seed| − weight`. Greenhaven gets an extra bonus inside r < 520, so it always owns the build plot.
+3. **Blend:** compact-support weights over a 150-stud band (`BLEND`) mix the neighbouring height profiles. Materials are dithered across the same band.
+4. **Coast:** a noise-perturbed ellipse that blends the land down to the seabed (sea level −2, seabed −24).
+
+### 16.3 Height profiles (per terrain kind)
+| Kind | Profile |
+|---|---|
+| rolling (Greenhaven) | gentle fbm hills |
+| woodland | rolling plus knolls |
+| desert | dunes (ridged noise) and mesas |
+| swamp | low base (2.5) with pools that dip below sea level |
+| mountains (Frostpeak) | 30 + 14·fbm + 270·ridged^1.25, lowered by a valley mask along roads |
+| jungle | humid hills with gorges |
+| glacier | broad ice plateaus |
+| volcanic (Ashenreach) | basalt plus the Cinder Maw crater (rim and bowl) and lava channels |
+| highlands (Starfall) | terraced plateaus |
+| dragon | jagged black peaks |
+
+On top of the profiles:
+- **Sites** are flattened. `siteInfluence` keeps swamp water off them.
+- **Roads** are graded: each road's height is limited to a 0.32 grade along its length. Roads become causeways in the swamp, and bridges are placed where they cross a river.
+- **Rivers** never rise downstream. Sunscar Wash is a dry riverbed.
+- **Lakes** sit at fixed levels; Frostmere is frozen.
+
+### 16.4 Builder (`src/world/tools/`)
+- `ContinentBuilder.build()`: clears the old continent and terrain, sets the terrain colours and water, then writes voxels in 64×64-column chunks with `WriteVoxels` (4-stud resolution: surface material on top, the region's deep material below, plus water). After that it builds scenery into per-region folders, then landmarks (each faces its nearest road), bridges and signposts.
+- `Scenery.luau`: about 30 part-built kinds (oaks, pines, snow pines, palms, jungle trees, cacti, reeds, ice spikes, basalt spires, steam vents, crystals, glow-shrooms, star trees, rocks…). All parts are anchored, with CanQuery and CanTouch off.
+- `Landmarks.luau`: 17 landmark builders, each with a name billboard, plus bridge and signpost builders.
+- **Measured build:** 156 chunks, 15.1 M voxels in about 15 s; 1,227 scenery items; 6,212 parts; 18 landmarks; 3 bridges; 13 signs.
+- **Rebuild is idempotent:** a second build leaves exactly one `Continent`.
+- **Fingerprint:** a sum of heights at fixed points, stored on `Continent`. Studio gives 13736.985, the same as Lune.
+
+### 16.5 Runtime changes
+- `WorldDecor`: if `Workspace.Continent` exists, only the lighting preset is applied (no tree ring).
+- `RegionHud.client.luau`: every 0.5 s, if the character has moved more than 6 studs, it calls `regionIdAt`. When the region changes it shows a banner and tweens `Atmosphere` towards that region's colour, decay, density and haze.
+- `Config`: `START_CASH = 5000`, `DEFAULT_WORLD_NAME = "My World"`, `OLD_DEFAULT_WORLD_NAMES`. `WorldSchema.decode` renames old default names and logs it as a repair.
+
+### 16.6 Changing the map
+Edit `RegionConfig`, then:
+1. `lune run tools/render-continent.luau <world.rbxl> out.ppm 4 regions` to preview
+2. `lune run tools/run-tests.luau` (includes `Continent_Test`)
+3. Install the build in Studio
+4. Run `require(game.ServerStorage.WorldTools.ContinentBuilder).build()` in edit mode
+5. Publish
+
+Saved player worlds are unaffected because the plot stays at the origin.
+
+### 16.7 Known limits
+- Phone performance hasn't been measured.
+- The square sea edge is visible only from very high up.
+- Roads are painted terrain (Asphalt/Ground), not paths that NPCs can follow yet. Phase 6 will turn `RegionConfig.ROADS` into waypoint graphs.

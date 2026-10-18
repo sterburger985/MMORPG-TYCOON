@@ -4,6 +4,43 @@ Part of [[MMORPG Tycoon]] · Newest entry at the top.
 
 ---
 
+## 2026-10-18 (evening) — Phase 5: complete world map overhaul
+
+### Request
+Sterling: the live test joins his world; the blue UI is approved; the tycoon/NPC phase comes next; give players **$5,000**; rename the default world to **"My World"**; then the attached brief: turn the flat World Place into a connected fantasy continent with ten organic regions (Lv 1–100), designed transitions, a central region config, preserved building and saving, a backup first, tests A–L and updated docs. The reference maps are for the idea only, and the result should stay Roblox-style.
+
+### What happened
+- **Backup:** downloaded `World-before-continent-2026-10-18.rbxl` before any terrain change.
+- **Design in code, tuned offline:** wrote `RegionConfig` + `Continent` (pure math) and a Lune renderer, then iterated on the map as images before touching Studio. Fixes during tuning:
+  - borders too straight → stronger warp
+  - flat Frostpeak → narrower valley mask, taller ridges
+  - too much swamp water → higher base
+  - coast too round → more noise
+  - swamp water on the start meadow → site influence
+- **Tests caught real problems:**
+  - Verdantwild didn't actually touch Glacial (neighbours corrected)
+  - part of the plot fell in Mirehollow (Greenhaven bonus)
+  - Elder Oak, Dragonbones and some sites sat in the wrong region or in water (moved)
+- **Builder:** `ContinentBuilder` writes terrain with `WriteVoxels` and builds about 30 scenery kinds, 17 landmark types, bridges and signs.
+  - First build in Studio: 156 chunks, 15.1 M voxels in 15 s, 6,145 parts.
+  - After the visual fixes (r11): 6,212 parts.
+- **Playtest tour of all ten regions:** banners and moods worked. Fixed jungle fog that was too thick, asphalt that read pale, and Starfall's salt that looked like snow (now lavender).
+- **$5,000 / "My World":** old default names are renamed on load; existing balances are kept.
+- Installed hub r10 and world r11, ran the World suite in Studio (143/143) and **published the World place (v10)**.
+
+### Testing
+- Local: World 102/102, Hub 63/63, 0 type errors.
+- Studio: World 143/143; fingerprint matches Lune; rebuild doesn't duplicate.
+- Real save/reload: 17 objects rebuilt with 0 dropped, then 18 saved after placing a Stone Path.
+- Not done: visitor test, phone performance.
+
+### Problems
+- Studio connector still "no_tools", so everything went through screen control and install models.
+- From very high altitude the square edge of the ocean is visible.
+- `Terrain.Decoration` is missing from the type definitions, so it's set inside a pcall.
+
+---
+
 ## 2026-10-18 (afternoon) — Phase 4: build mode, magic-fantasy blue UI, publishing
 
 ### Request

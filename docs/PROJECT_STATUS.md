@@ -1,18 +1,39 @@
 # PROJECT_STATUS — MMO Tycoon (Roblox)
 
-Part of [[MMORPG Tycoon]] · Last updated: 2026-10-18 (Phase 4 build mode and blue UI live in the published experience; real DataStores verified)
+Part of [[MMORPG Tycoon]] · Last updated: 2026-10-18 evening (Phase 5 continent overhaul published)
 
 ## Current phase
-**Phase 4: Build mode + magic-fantasy blue UI. Built, tested in Studio against real DataStores, and published to the private experience. Awaiting review.**
+**Phase 5: World map overhaul. The World place is now a connected fantasy continent with ten levelled regions. Built, tested in Studio and published (World place v10). Awaiting review.**
 
-- **Published:** experience **"MMO Tycoon"** (GameId 10771780924, private/Playtesters). Hub place 78195623283467, World place 86431904123318, both updated and published 2026-10-18.
-- **Real DataStores verified** (Studio, `StudioTest_*` stores): new world, autosave of 17 objects (1,121 bytes), fresh session → `17 objects rebuilt, 0 dropped`, Cash restored. This closes the last Phase 2 item.
-- **Build mode delivered:** bottom dock (HUB, 5 category tabs, rotate, remove, cancel), item tray with live 3D previews and prices, ghost preview that snaps to the grid with a cyan/red footprint plate and a price/reason tag, R to rotate, click to place, X for remove mode with refund tag, Q/Esc to cancel, a placement burst effect, and touch controls (tap, then ✅ PLACE / 🔄 ROTATE). The server still decides everything.
-- **10 items** (6 new: Arcane Crystal, Lantern Post, Wooden Fence, Stone Well, Market Stall, Mage Tower), built by code in one style.
-- **UI restyle:** deep sapphire glass panels, luminous cyan rims, bright azure buttons, outlined white headings, gold only for money; blue World Gates and rune ring in the hub; settings moved to a ⚙ WORLD side button.
-- **Title:** "MMO Tycoon" in game and as the experience name. Visitors capped at **4** per world (the server refuses a 5th with a message).
+- **The continent:** about 3,200 × 3,000 studs of smooth terrain in an organic, noise-warped coastline. Ten regions run from Lv 1 to Lv 100: Greenhaven Grasslands (1–10, the start, around your build plot) → Whisperwood Forest → Sunscar Desert → Mirehollow Swamps → Frostpeak Mountains → Verdantwild Jungle → Glacial Expanse → Ashenreach → Starfall Highlands → Dragon's End (91–100).
+- **Borders are organic:** domain-warped weighted Voronoi with a 150-stud blend band, plus dithered materials. A test fails any region that fills more than 85% of its bounding box.
+- **Content:** 18 landmarks (Elder Oak, Heartroot, Sandstone Arch, Drowned Tower, Mountain Shrine, Silver Falls, Jungle Temple, Jade Falls, Ice Spires, Ice Cave, The Cinder Maw crater, Ash Fortress, Observatory, Giant Crystal, Dragon Citadel, Dragonbones, ruins). Also 6 roads, 4 rivers with 3 bridges, 5 lakes (one frozen), lava channels, 13 signposts and about 1,230 scenery pieces from roughly 30 code-built kinds.
+- **Region HUD:** walking into a region shows "<Region> · Recommended Lv X–Y" and eases the sky haze to that region's mood.
+- **Plot unchanged:** the build plot is still at the origin, flat and dry in Greenhaven. Saved worlds load unchanged ("17 objects rebuilt, 0 dropped").
+- **Economy:** new worlds start with **$5,000** (`START_CASH`). Existing worlds keep their balance.
+- **World name:** the default is now **"My World"**. Worlds still on an old default ("My MMORPG" / "My MMO") are renamed when they load.
+- **Backup:** `C:\Roblox Dev\MMORPG Tycoon\backups\World-before-continent-2026-10-18.rbxl` (downloaded before any terrain change).
 
-### Phase 4 feature status
+### Phase 5 test results (brief's tests A–L)
+| Test | Result | Evidence |
+|---|---|---|
+| A — ten regions, ids and levels | ✅ | `Continent_Test` (Lune + Studio) |
+| B — organic borders, no rectangles | ✅ | Fill-ratio test; aerial screenshots; labelled map |
+| C — declared neighbours = real map | ✅ | Adjacency test samples a 32-stud grid |
+| D — plot flat, dry, Greenhaven | ✅ | Test; walked in play mode |
+| E — landmarks and sites in their own region | ✅ | Test; region tour |
+| F — roads walkable, lead through all ten in order | ✅ | Grade/water test; order test |
+| G — region query (levels, transitions, buildable) | ✅ | Test; HUD banners in play mode for all ten regions |
+| H — build mode, persistence, ownership | ✅ / 🟡 | Placed a Stone Path (Cash 549 → 544); shutdown save of 18 objects; reload clean. Visitor/ownership not re-run (unchanged code) |
+| I — deterministic, matches Lune | ✅ | Studio fingerprint 13736.985 = Lune |
+| J — rebuild doesn't duplicate | ✅ | Second build → `continents: 1` |
+| K — visitors / Hub | 🟡 | Hub reinstalled (r10) and published; visitor flow not re-tested this phase |
+| L — performance | 🟡 | 6,212 parts plus terrain; fine on this PC in Studio; no phone test |
+
+### Unit tests
+Local (Lune): World 102/102, Hub 63/63. Studio server (World place, after the build): **143/143**. Type check: 0 errors.
+
+### Phase 4 feature status (2026-10-18 afternoon)
 | Feature | Status | Evidence |
 |---|---|---|
 | Category tabs + item tray with 3D previews | ✅ | Real clicks in Studio; previews render |
@@ -73,16 +94,16 @@ Legend: ✅ tested in Studio · 🧪 unit-tested · 🟡 implemented, needs the 
 </details>
 
 ## Current project condition
-Both places are published with the latest code. Owners can build with the full build-mode UI; travel works in the live game (not yet run live).
+Both places are published with the latest code. The World place is the fantasy continent; owners build on their plot in Greenhaven. Sterling confirmed the live hub → world teleport works.
 
 | Item | State |
 |---|---|
 | Experience | **MMO Tycoon**, private (Playtesters), Team Create on. Open it from Studio's home page; the World place is under Asset Manager → Places in Experience ("sterburger985's Place"). |
-| Hub place | 78195623283467 — 27 scripts, build r8, published |
-| World place | 86431904123318 — 41 scripts, build r9, published |
+| Hub place | 78195623283467 — 30 scripts, build r10, published |
+| World place | 86431904123318 — 48 scripts, build r11, continent built in edit mode and saved, published v10 |
 | Local `.rbxl` files | Superseded by the published places (kept, not needed) |
-| Install models | `C:\Roblox Dev\MMORPG Tycoon\build\{hub,world}-install-r9.rbxm` (latest); older ones can be deleted. Generated by `tools/make-install-model.py`. |
-| Repo | `github.com/sterburger985/MMORPG-TYCOON`: Phases 0–4 pushed (`main`) |
+| Install models | `C:\Roblox Dev\MMORPG Tycoon\build\hub-install-r10.rbxm`, `world-install-r11.rbxm` (latest); older ones can be deleted. Generated by `tools/make-install-model.py`. |
+| Repo | `github.com/sterburger985/MMORPG-TYCOON`: Phases 0–5 pushed (`main`) |
 | Type check | 0 errors in both places |
 
 ### Updating a place (until the Studio connector works)
@@ -128,7 +149,9 @@ Legend: ✅ tested successfully in Studio · 🟡 implemented, not tested in Stu
 - **Studio MCP connector:** still "no_tools" in the Claude desktop app with Studio open. Claude can't control the Claude app itself, so restarting it is a manual step (Settings → Developer / Connectors → Roblox Studio → restart, or quit and reopen the app).
 - **Studio multi-client tests:** test players have negative UserIds, so the World server (correctly) won't make one an owner; use `OwnerOverride` to test visitors.
 - **Multi-client behaviour untested** in both places.
-- **Repo not pushed:** the code lives in the places and in Claude's workspace until it's pushed.
+- **Continent edits:** terrain is prebuilt and saved in the place. To change the map, edit `RegionConfig`, install the new build, then run `require(game.ServerStorage.WorldTools.ContinentBuilder).build()` in edit mode (about 15 s), then publish.
+- **Ocean edge:** from very high up, the square edge of the sea terrain is visible. Normal play heights don't show it.
+- **Performance on phones** not measured yet (6,212 scenery parts plus terrain).
 
 ## Setup requirements (Roblox Studio)
 Done: published, API access on, World place added. Remaining (Creator Hub): World place **Max Players = 5** (owner + 4 visitors; the server already enforces 4 visitors) and Hub Max Players = 6.
@@ -171,5 +194,4 @@ Done: published, API access on, World place added. Remaining (Creator Hub): Worl
 - **Accept when:** every row of that live test list passes and no client action can enter, see or change a world it isn't allowed to.
 
 ## Next implementation task
-1. Sterling's 1-minute live test: play the experience from the Roblox app → ENTER MY WORLD → build → RETURN TO HUB → ENTER again (same objects).
-2. Proposed next phase: **the "tycoon" part** — NPC adventurers who visit your world, earn you Cash over time, and react to what you've built (the MMORPG Tycoon loop).
+**Phase 6: the tycoon loop (approved).** NPC adventurers spawn in Greenhaven, walk the roads to regions that match their level, and pay you for the things you build (inns, shops, quest boards, dungeons). Use `Continent.regionAt` for routing and levels, and the region `sites` as spawn and quest locations.
