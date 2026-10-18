@@ -21,6 +21,14 @@ local Config = {
 	START_CASH = 2000, -- (proposed)
 	REFUND_RATE = 1, -- fraction of the price returned on removal (proposed)
 
+	-- Worlds
+	DEFAULT_WORLD_NAME = "My MMORPG",
+
+	-- Places. 0 = find them automatically (the place whose name contains "World" is the
+	-- World place; the other is the Hub). Set real ids here to override.
+	HUB_PLACE_ID = 0,
+	WORLD_PLACE_ID = 0,
+
 	-- Anti-spam: token bucket per player for build requests
 	RATE_LIMIT_PER_SEC = 8,
 	RATE_LIMIT_BURST = 12,

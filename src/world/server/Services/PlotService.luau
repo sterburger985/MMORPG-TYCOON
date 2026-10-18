@@ -11,6 +11,7 @@ local Workspace = game:GetService("Workspace")
 local Config = require(ReplicatedStorage.Shared.Config)
 local PlacementRules = require(ReplicatedStorage.Shared.PlacementRules)
 local WorldState = require(script.Parent.WorldState)
+local Decor = require(script.Parent.Parent.Util.Decor)
 
 export type Plot = {
 	id: number,
@@ -26,6 +27,7 @@ export type Plot = {
 local PLOT_STUDS = Config.PLOT_CELLS * Config.CELL_SIZE
 
 local plot: Plot? = nil
+local hubGatePrompt: ProximityPrompt? = nil
 
 local PlotService = {}
 
@@ -79,6 +81,17 @@ local function buildWorldTile(): Model
 		}).Parent = model
 	end
 
+	-- Warm lamps on the rim (corners and edge midpoints; the south midpoint is the gate)
+	-- (outside the build grid, so they can never clip a player's build).
+	local lamps = Instance.new("Folder")
+	lamps.Name = "Lamps"
+	lamps.Parent = model
+	local edge = (PLOT_STUDS + rimWidth) / 2
+	local rimTop = surfaceY + rimHeight - 0.4
+	for _, xz in { { -1, -1 }, { 0, -1 }, { 1, -1 }, { -1, 0 }, { 1, 0 }, { -1, 1 }, { 1, 1 } } do
+		Decor.lamp(lamps, Vector3.new(xz[1] * edge, rimTop, xz[2] * edge))
+	end
+
 	local pad = makePart({
 		Name = "SpawnPad",
 		Size = Vector3.new(10, 0.4, 10),
@@ -92,8 +105,8 @@ local function buildWorldTile(): Model
 	local sign = Instance.new("BillboardGui")
 	sign.Name = "WorldSign"
 	sign.Size = UDim2.fromOffset(260, 48)
-	sign.StudsOffset = Vector3.new(0, 7, 0)
-	sign.MaxDistance = 220
+	sign.StudsOffset = Vector3.new(0, 5, 0)
+	sign.MaxDistance = 90 -- close-range only, so it does not stack on the gate label from afar
 	sign.Enabled = false
 	local label = Instance.new("TextLabel")
 	label.Name = "Label"
@@ -110,6 +123,74 @@ local function buildWorldTile(): Model
 	local placed = Instance.new("Folder")
 	placed.Name = "Placed"
 	placed.Parent = model
+
+	-- Hub Gate just outside the south rim, behind the spawn pad: walk through to go home.
+	local gatePos = Vector3.new(0, surfaceY, PLOT_STUDS / 2 + 12)
+	local gate, portal = Decor.gate(model, CFrame.lookAt(gatePos, gatePos + Vector3.new(0, 0, -1)), Color3.fromRGB(255, 196, 90), "HubGate")
+	local step = makePart({
+		Name = "GateStep",
+		-- Reaches below the terrain verge so no gap shows around it.
+		Size = Vector3.new(16, surfaceY + 6, 10),
+		CFrame = CFrame.new(gatePos - Vector3.new(0, (surfaceY + 6) / 2, 0)),
+		Material = Enum.Material.Slate,
+		Color = Color3.fromRGB(150, 138, 120),
+	})
+	step.Parent = gate
+	local prompt = Instance.new("ProximityPrompt")
+	prompt.Name = "HubPrompt"
+	prompt.ActionText = "Return to Hub"
+	prompt.ObjectText = "Hub Gate"
+	prompt.KeyboardKeyCode = Enum.KeyCode.E
+	prompt.HoldDuration = 0.35
+	prompt.MaxActivationDistance = 14
+	prompt.RequiresLineOfSight = false
+	prompt.Parent = portal
+	hubGatePrompt = prompt
+	local _, title, subtitle = Decor.label(gate:FindFirstChild("Lintel") :: BasePart, "GateLabel", 5, 260)
+	title.Text = "World Hub"
+	subtitle.Text = "Return to the hub"
+
+	-- If the place has terrain, carve it out of the tile and gate area so it can't bury
+	-- them (terrain grass and hills otherwise poke through the build surface). The
+	-- terrain around the tile stays, so the world sits inset into the landscape.
+	local terrain = Workspace.Terrain
+	local margin = 8
+	local clearHeight = 60
+	local clearSize = Vector3.new(outer + margin * 2, clearHeight, outer + margin * 2 + 24)
+	local clearCentre = Vector3.new(0, surfaceY - thickness + clearHeight / 2, 12)
+	terrain:FillBlock(CFrame.new(clearCentre), clearSize, Enum.Material.Air)
+	-- Under the tile, swap terrain for plain Ground: terrain grass blades grow up to a
+	-- few studs from Grass voxels and would otherwise poke up through the build surface.
+	local subDepth = 12
+	terrain:FillBlock(
+		CFrame.new(clearCentre.X, surfaceY - thickness - subDepth / 2, clearCentre.Z),
+		Vector3.new(clearSize.X, subDepth, clearSize.Z),
+		Enum.Material.Ground
+	)
+	-- Refill a grass verge around the rim (top just under the surface) so the carve
+	-- doesn't leave a trench. The gate step's footprint is left clear so terrain grass
+	-- can't grow up through it.
+	local half = outer / 2
+	local x0, x1 = -clearSize.X / 2, clearSize.X / 2
+	local z0, z1 = clearCentre.Z - clearSize.Z / 2, clearCentre.Z + clearSize.Z / 2
+	local vergeTop = surfaceY - 0.6
+	local vergeBottom = surfaceY - thickness - 4
+	local function verge(ax: number, az: number, bx: number, bz: number)
+		local size = Vector3.new(bx - ax, vergeTop - vergeBottom, bz - az)
+		if size.X > 0 and size.Z > 0 then
+			terrain:FillBlock(CFrame.new((ax + bx) / 2, (vergeTop + vergeBottom) / 2, (az + bz) / 2), size, Enum.Material.Grass)
+		end
+	end
+	verge(x0, z0, x1, -half) -- north
+	verge(x0, -half, -half, half) -- west
+	verge(half, -half, x1, half) -- east
+	local stepHalf = 8 -- the gate step is 16 x 10 studs, centred on the gate
+	local stepNear = PLOT_STUDS / 2 + 12 - 5
+	local stepFar = PLOT_STUDS / 2 + 12 + 5
+	verge(x0, half, -stepHalf, z1) -- south-west of the gate step
+	verge(stepHalf, half, x1, z1) -- south-east of the gate step
+	verge(-stepHalf, half, stepHalf, stepNear) -- between the rim and the step
+	verge(-stepHalf, stepFar, stepHalf, z1) -- behind the gate step
 
 	model.Parent = Workspace
 	return model
@@ -135,6 +216,10 @@ end
 
 function PlotService.Start() end
 
+function PlotService.getHubGatePrompt(): ProximityPrompt?
+	return hubGatePrompt
+end
+
 -- The world's plot, for anyone in this server, once the world is loaded.
 function PlotService.getPlotOf(_player: Player): Plot?
 	if not WorldState.isLive() then
@@ -159,20 +244,24 @@ function PlotService.surfaceCFrame(p: Plot): CFrame
 end
 
 -- Show the world's public details on the plot (name sign + replicated attributes).
--- Only non-sensitive fields: no session ids, no save data.
+-- Only non-sensitive fields: no session ids, no save data. Attributes replicate to
+-- every client in the server, including a visitor who is about to be refused, so a
+-- non-Public world's name is NOT published here; WorldSessionService sends it only to
+-- players who passed the access gate.
 function PlotService.showWorldInfo(name: string, visibility: string, ownerUserId: number, status: string)
 	local p = PlotService.getWorldPlot()
+	local public = visibility == "Public"
 	p.model:SetAttribute("OwnerUserId", ownerUserId)
-	p.model:SetAttribute("WorldName", name)
+	p.model:SetAttribute("WorldName", if public then name else nil)
 	p.model:SetAttribute("Visibility", visibility)
 	p.model:SetAttribute("WorldStatus", status)
 	local sign = p.spawnPad:FindFirstChild("WorldSign") :: BillboardGui?
 	if sign then
 		local label = sign:FindFirstChild("Label") :: TextLabel?
 		if label then
-			label.Text = name
+			label.Text = if public then name else ""
 		end
-		sign.Enabled = true
+		sign.Enabled = public
 	end
 end
 

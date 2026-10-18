@@ -257,4 +257,9 @@ function PlotService.getPlots(): { Plot }
 	return plots
 end
 
+-- Set (or clear, with nil) the text on a plot's spawn-pad sign.
+function PlotService.setSign(plot: Plot, text: string?)
+	setSign(plot, text)
+end
+
 return PlotService

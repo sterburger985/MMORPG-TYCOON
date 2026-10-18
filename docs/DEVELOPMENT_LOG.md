@@ -4,6 +4,47 @@ Part of [[MMORPG Tycoon]] · Newest entry at the top.
 
 ---
 
+## 2026-10-18 — Phase 2 Studio verification + Phase 3: travel and visiting
+
+### Request
+Sterling finished the setup steps (World place file created and opened) and asked for Phase 3, with three standing instructions: end every response with questions, **make sure the game looks cool**, and finish all instructions before stopping.
+
+### Setup and workflow
+- The Studio MCP connector stayed at "no_tools" in the desktop app (Studio said 1 client connected), so all Studio work used **screen control**. Code went in as **Rojo-built `.rbxm` install models** (File → Import Roblox Model, then one command-bar snippet), not by pasting about 300 KB of source.
+- The World file in Documents opened **read-only** (Studio said it was in use). I saved a verified copy to `C:\Roblox Dev\MMORPG Tycoon\MMORPG TYCOON WORLD.rbxl`. Later, that copy also came up read-only: the `.rbxl.lock` named this same Studio process (PID 16648), which kept its locks after switching files. Restarting Studio clears it.
+- Studio probe: hub and World both unpublished (PlaceId 0); hub had 0 scripts and no terrain; the World file has terrain.
+
+### What was built (Phase 3)
+- Shared `AccessPolicy`; common `Travel/` (DataKeys, Places, SafeTeleport, WorldDirectory) and `Util/` (Remotes, Decor, LightingPreset).
+- Hub: `TravelService` (World Gates, world info, travel checks, `RequestEnterMyWorld`) and `HubEnvironment` (roads, plaza, fountains, lamps, forest, lighting). The hub no longer runs PlacementService, Economy or PlayerData.
+- World: Hub Gate, rim lamps and terrain handling in `PlotService`; `WorldDecor`; arrival access gate, visitor recheck, `RequestReturnToHub` and the private name grant in `WorldSessionService`.
+- Client: `UI` kit (panels, gold/dark buttons, chips, toasts, travel screen), `HubHud`, `WorldHud`.
+- Tests: `AccessPolicy_Test` (6), `WorldDirectory_Test` (11).
+
+### Problems found in Studio, and fixes
+1. **World HUD crashed:** `UI.label` passed `MaxTextSize` to a TextLabel (not a property) → filtered out (also in `UI.button`).
+2. **Terrain buried the world tile** and the Hub Gate, and terrain grass grew up through the tile → carve terrain above the tile, Ground (no grass decoration) underneath, Grass verge around the rim, and the gate step's footprint kept clear.
+3. **Dark buttons had invisible text:** a `UIGradient` tints a button's text too → solid base colour + neutral white→grey gradient.
+4. Cash chip hidden under Roblox's player list → centred under the banner; toasts moved below it.
+5. **Hub world card stuck on "loading":** in an unpublished place `GetDataStore` itself throws, outside the retry pcall → every store access guarded; the card shows "Info unavailable". New unit test.
+6. **Kerbs cut through the plaza and every crossing** → kerbs are built in segments with gaps at crossings, the plaza and fountains.
+7. Gate labels were fixed-pixel size (far ones crowded the screen) → sized in studs, so they shrink with distance.
+8. **Privacy leak:** a refused visitor briefly saw a Private world's name (plot attributes replicate to everyone) → non-Public names are sent only to admitted players.
+9. Tooling: `device_commit_files` re-sent a stale snapshot when the same output filename was reused → each build now gets a new name (`-rN`).
+
+### Testing performed
+- Type check: both places 0 errors. Local Lune: Hub 51/51, World 89/89.
+- **Studio, World place:** suites 105/105; Phase 2 session Tests A, B/E, C, D, F all pass (details in TECHNICAL_ARCHITECTURE §13.11); placement through the real remote (4 placed; overlap, fake item and out-of-bounds rejected); visitor writes → `NotOwner`; Public visitor admitted; Private and FriendsOnly visitors refused; private name hidden after the fix; owner HUD, visibility pill click and RETURN TO HUB click work; Studio-only travel guard shows its message.
+- **Studio, hub:** suites 68/68; environment, gates and card checked by screenshot; ENTER MY WORLD click → server checks → Studio notice.
+
+### Not tested (needs the published experience)
+Real DataStores, access-code reservation, teleports in both directions, live owner resolution, joining a running world with two accounts, visitor recheck with a real visitor, teleport failures.
+
+### Files
+Hub saved with build r6 (27 scripts; r7 changes nothing that runs in the hub). World copy saved with r4 (40 scripts); r7 is tested but unsaved because of the lock and must be reinstalled after a Studio restart. Install models and `INSTALL.md` are in `C:\Roblox Dev\MMORPG Tycoon\build\`.
+
+---
+
 ## 2026-10-17 (late) — Phase 2: Persistent worlds and world loading
 
 ### Inspection (before any change)

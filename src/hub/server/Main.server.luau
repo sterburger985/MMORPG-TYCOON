@@ -1,18 +1,18 @@
 --!strict
--- Server bootstrap: Init every service, Start every service, then drive the player
--- lifecycle in a fixed order so no service races another on join or leave.
+-- Hub place server bootstrap. The hub is the social space: everyone gets a plot that
+-- shows off their world, with a World Gate to enter it (or to visit someone else's).
+-- Building happens in the World place.
 
 local Players = game:GetService("Players")
 
 local Services = script.Parent.Services
-local PlayerDataService = require(Services.PlayerDataService)
 local PlotService = require(Services.PlotService)
-local EconomyService = require(Services.EconomyService)
-local PlacementService = require(Services.PlacementService)
+local HubEnvironment = require(Services.HubEnvironment)
+local TravelService = require(Services.TravelService)
 
 type Service = { Init: () -> (), Start: () -> () }
 
-local ordered: { Service } = { PlayerDataService, PlotService, EconomyService, PlacementService }
+local ordered: { Service } = { PlotService, HubEnvironment, TravelService }
 
 for _, service in ordered do
 	service.Init()
@@ -22,17 +22,17 @@ for _, service in ordered do
 end
 
 local function onPlayerAdded(player: Player)
-	PlayerDataService.load(player)
-	EconomyService.attach(player)
-	if PlotService.assign(player) == nil then
-		player:Kick("This server is full. Please join another server.")
+	local plot = PlotService.assign(player)
+	if plot == nil then
+		player:Kick("This hub server is full. Please join another server.")
+		return
 	end
+	TravelService.onPlayerJoined(player, plot)
 end
 
 local function onPlayerRemoving(player: Player)
-	PlacementService.forget(player)
+	TravelService.onPlayerLeaving(player, PlotService.getPlotOf(player))
 	PlotService.release(player)
-	PlayerDataService.release(player)
 end
 
 Players.PlayerAdded:Connect(onPlayerAdded)
@@ -41,4 +41,4 @@ for _, player in Players:GetPlayers() do
 	task.spawn(onPlayerAdded, player)
 end
 
-print("[Server] MMORPG Tycoon server ready")
+print("[Server] MMORPG Tycoon HUB server ready")

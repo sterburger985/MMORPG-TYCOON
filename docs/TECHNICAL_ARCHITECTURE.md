@@ -255,7 +255,7 @@ Status labels used in all docs: **Not implemented** · **Implemented, not tested
 
 ---
 
-## 12. Hub-and-World architecture (revision 2026-10-17) — **proposed, not implemented, not tested**
+## 12. Hub-and-World architecture (revision 2026-10-17) — the plan. **Implemented in §13 (Phase 2) and §14 (Phase 3)**; differences are listed there
 
 This section supersedes §5 (data ownership, for Cash and placed objects), §9 (persistence) and the single-server parts of §2 and §7. Everything else (grid, rules, placement workflow, remotes, rate limiting) carries over unchanged into the World place.
 
@@ -501,18 +501,16 @@ Key: `world_<OwnerUserId>` in DataStore `Worlds_v1` (live) or `StudioTest_Worlds
 | Two sessions load the same world | **Handled:** the second gets `locked` → waits → read-only. Unit tested 🧪. In production, reserved servers make this rare (Roblox runs one instance per access code); it mainly happens during shutdown/startup overlap. |
 | Two sessions save the same world | **Handled:** only the lock holder's `UpdateAsync` writes; the other gets `lock_lost` and goes read-only 🧪 |
 | Server closes mid-save | **Partly:** `UpdateAsync` is atomic per key (all or nothing). The final save runs in `BindToClose`. A crash before it means changes since the last save (≤ 60 s) are lost, and the lock stays until it goes stale (5 min), during which a new session opens read-only. |
-| Player enters a world that's already active | **Not implemented** (travel phase): the plan is the same reserved-server code, so they join the running session (§12.2). |
+| Player enters a world that's already active | **Implemented in Phase 3 (§14):** every trip to a world uses its one stored access code, and Roblox runs one instance per code, so they join the running session. 🟡 needs a live test with 2 accounts. |
 | Clock skew between servers | lock staleness uses `os.time()`; minutes-level tolerance makes small skew harmless. Not tested. |
 
-### 13.8 Visibility 🟡
-Stored in `Settings.Visibility` (default **Public**). Changed only via `RequestSetVisibility` (RemoteFunction, World place). The server checks rate limit → world live → caller is owner → world writable → value is one of the three. Stored ≠ enforced: **nobody but the owner can enter a live World server yet** (non-owners are kicked live). Entry checks using visibility arrive with travel (§12.8).
+### 13.8 Visibility ✅ (Studio)
+Stored in `Settings.Visibility` (default **Public**). Changed only via `RequestSetVisibility` (RemoteFunction, World place). The server checks rate limit → world live → caller is owner → world writable → value is one of the three. Enforced on entry since Phase 3 (§14.4).
 
 ### 13.9 Current limits
 - 1 world per server, one 64 × 64-cell plot, max 400 objects.
-- No hub ↔ world travel; live World servers can't learn their owner yet (by design, until travel).
-- No visitors (Studio-only test visitors, view only).
 - World names can't be changed yet (no rename remote; it needs TextService filtering).
-- Not yet verified with real DataStores (experience unpublished).
+- Not yet verified with real DataStores (experience unpublished). Travel, visitors and live owner resolution: see §14.
 
 ### 13.10 Manual setup required (Sterling)
 1. **Publish the hub:** open `MMORPG TYCOON.rbxl` → File → Publish to Roblox → create the experience (keep it private). It becomes the start place.
@@ -524,5 +522,83 @@ Stored in `Settings.Visibility` (default **Public**). Changed only via `RequestS
 6. Once steps 1–3 are done, Claude syncs the World scripts and assets into the World place, switches `STUDIO_STORE_MODE` to `"DataStore"` for a real-DataStore pass (namespace `StudioTest_*`), and runs the Studio tests in §13.11.
 
 ### 13.11 Testing
-- **Done:** type check of both places (0 errors); Rojo build of both places; **72/72 unit tests** in a local Luau runtime (Lune) against the Rojo-built World place, and 34/34 for the Hub (the engine-dependent ItemAssets suite is skipped locally; it passed in Studio in Phase 1). These cover Tests A–F at the store/loader level with a fake DataStore.
-- **Not yet done (needs the World place open in Studio):** run the same suites inside Studio; session-level Tests A–F with the Studio dev store (new world → place → save → copy the saved JSON into Edit → Play again → identical; invalid JSON; `FailMode=all`; `OwnerOverride` for a second owner); real DataStore pass after publishing; live reserved-server owner resolution (travel phase).
+- **Studio, 2026-10-18 (World place copy, Studio dev store):** World suites **105/105** on the Studio server (ItemAssets included). Session Tests: **A** new world → `world ready (new)`; **B/E** 4 objects placed through the real remote, autosaved (397 bytes), saved JSON put back into Edit, fresh Play → `4 objects rebuilt, 0 dropped`, same ids/types/cells/rotations, Cash 1,690 and visibility restored; **C** a record with 4 bad objects → `2 objects rebuilt, 4 dropped` (unknown_type, blocked, outofbounds, bad_transform, all kept in quarantine); **D** `FailMode=all` → 4 load attempts, `load FAILED … Nothing will be saved`, player sent away with "Nothing was lost", record byte-identical afterwards; **F** `OwnerOverride=4242` → a separate `world_4242` created, `world_1586031803` untouched. Visitor build/remove/settings remotes → `NotOwner`. Shutdown save releases the lock.
+- **Done earlier (local):** type check of both places (0 errors); Rojo build of both places; **72/72 unit tests** in a local Luau runtime (Lune) against the Rojo-built World place, and 34/34 for the Hub (the engine-dependent ItemAssets suite is skipped locally; it passed in Studio in Phase 1). These cover Tests A–F at the store/loader level with a fake DataStore.
+- **Still not done:** real DataStore pass (needs publishing + API access); live reserved-server owner resolution (needs publishing; see §14.8).
+
+---
+
+## 14. Phase 3 implementation: travel and visiting (2026-10-18)
+
+Status legend as in PROJECT_STATUS: ✅ tested in Studio · 🧪 unit-tested · 🟡 implemented, not testable until the experience is published (teleports and DataStores) · ⬜ not built.
+
+### 14.1 What changed from the §12 plan, and why
+- **Access codes live in a small `WorldMeta` record** (`meta_<UserId>`: `OwnerUserId`, `AccessCode`, `PrivateServerId`), written by the hub only. The big world record stays a single writer (the World server). *Why:* the hub never touches world saves, and the code is created once and reused forever.
+- **The index is written before the code is stored** (`ps_<PrivateServerId>` → UserId, then the meta). *Why:* if the hub crashes in between, the worst case is an unused reserved server, never a World server that can't find its owner.
+- **Place ids are found at runtime** (`AssetService:GetGamePlacesAsync`: the place whose name contains "world" is the World place, the other is the Hub), with `Config.HUB_PLACE_ID` / `WORLD_PLACE_ID` as overrides. *Why:* nothing hard-coded before the places exist.
+- **Visiting starts from a player's World Gate in the hub, and the owner must be in the same hub server.** A global browser comes later (as planned).
+- **A non-Public world's name is never replicated.** Plot attributes reach every client in the server, including a visitor who is about to be refused, so for FriendsOnly/Private worlds the name is sent only to admitted players (`Notify` kind `worldname`). Found and fixed during Studio testing.
+
+### 14.2 Code map (new or changed in Phase 3)
+| Module | Place | Role |
+|---|---|---|
+| `src/shared/AccessPolicy.luau` | both | Pure rule: `decide(visibility, isOwner, isFriend)` → `allowed` / `private` / `friends_only` / `invalid`; unknown values deny. 🧪 |
+| `src/common/server/Travel/DataKeys.luau` | both | Store names (`WORLDS`, `WORLD_META`, `WORLD_INDEX`, Studio prefix `StudioTest_`) and key builders. |
+| `src/common/server/Travel/WorldDirectory.luau` | hub | `peek(owner)` (read-only summary; refuses another owner's record), `ensureAccessCode(owner)` (reserve once, index first, keep the first code on a race, repair a missing index). Dependencies injected, so it is unit-tested with fakes. 🧪 |
+| `src/common/server/Travel/Places.luau` | both | Finds the Hub and World place ids. `pick` 🧪 |
+| `src/common/server/Travel/SafeTeleport.luau` | both | `TeleportAsync` with 3 tries, `isAvailable()` (false in Studio / PlaceId 0), `TeleportInitFailed` → listener. 🟡 |
+| `src/common/server/Util/Remotes.luau` | both | Creates remotes; `notify(player, kind, text, title)` (toast / travel screen / `worldname`). ✅ |
+| `src/common/server/Util/Decor.luau`, `LightingPreset.luau` | both | Shared scenery kit (parts, discs, lamps, props from item models, glowing gates, stud-sized labels) and the lighting look. ✅ |
+| `src/hub/server/Services/TravelService.luau` | hub | World Gate on every plot (ProximityPrompt), world info on the plot (name, badge, object count; private worlds show no details), travel checks, `RequestEnterMyWorld`. ✅ (Studio paths) / 🟡 (teleport) |
+| `src/hub/server/Services/HubEnvironment.luau` | hub | Grass ground, cobblestone avenue/streets/ring road with kerbs that stop at crossings and the plaza, central plaza with rune ring, fountains at crossings, lamps, forest ring, lighting. ✅ |
+| `src/world/server/Services/PlotService.luau` | world | + golden Hub Gate south of the tile, rim lamps, terrain carve-out under/around the tile (see §14.6). ✅ |
+| `src/world/server/Services/WorldDecor.luau` | world | Tree and rock ring raycast onto the ground; lighting. ✅ |
+| `src/world/server/Services/WorldSessionService.luau` | world | + arrival access gate, private name grant, visitor recheck after a visibility change, `RequestReturnToHub` (owner saves first), Hub Gate prompt, teleport-failure messages, manual respawn. ✅ / 🟡 (teleport) |
+| `src/client/common/UI.luau` | both | Theme, panels, buttons, chips, toasts, travel screen (also used as the teleport loading screen). ✅ |
+| `src/client/hub/HubHud.client.luau` | hub | World card (name, visibility, object count), ⚔ ENTER MY WORLD button. ✅ |
+| `src/client/world/WorldHud.client.luau` | world | Banner (name, YOUR WORLD / VISITING · by owner, visibility), owner Cash chip, WORLD SETTINGS pills, ⟵ RETURN TO HUB. ✅ |
+
+### 14.3 Travel flow (hub → world)
+1. A player uses **ENTER MY WORLD** or a plot's **World Gate** prompt. The client sends only "I want to go" (or triggers the prompt); it never names a code, place or UserId.
+2. Hub `travel(player, owner)`: already travelling? → rate limit (≈1 per 2 s) → owner still in this hub with a plot → `SafeTeleport.isAvailable()` → World place found.
+3. Visitor only: `peek(owner)` → friendship via `Player:IsFriendsWithAsync` (errors count as "not a friend") → `AccessPolicy`. Denied → toast with the reason; nothing reserved.
+4. `ensureAccessCode(owner)` → the world's one code (reserved on the very first trip).
+5. `notify(player, "travel", …)` shows the travel screen; `TeleportAsync(worldPlaceId, {player}, TeleportOptions{ ReservedServerAccessCode = code })`. Failures (here or `TeleportInitFailed`) → error toast and the travel screen closes.
+- Teleport data is **not used** for anything; the World server works out everything itself.
+
+### 14.4 Arrival (World server)
+- Owner resolution: `game.PrivateServerId` → `ps_<id>` index → owner UserId (Phase 2 `OwnerResolver`). No index → fail closed.
+- Every non-owner is checked again on arrival with the same `AccessPolicy` and a fresh friends check. Refused → "That world is private." / "…owner's friends only." → sent to the hub (kicked in Studio, where teleports don't work).
+- Admitted visitors get a welcome toast and the world's name; they are view-only (all build/remove/settings remotes return `NotOwner`).
+- The owner changes visibility in WORLD SETTINGS → saved → every visitor is rechecked and anyone no longer allowed is sent to the hub.
+- Owner leaves → world saved at once; visitors may stay; the server closes when empty (GAME_DESIGN §5).
+- **Joining a running world:** same code → same server instance. 🟡 live test pending.
+
+### 14.5 Return (world → hub)
+`RequestReturnToHub` or the Hub Gate prompt: rate limit → the owner's world is saved first → teleport to the Hub place (a normal public server). If teleports are unavailable: a clear toast. If the World server must remove someone and can't teleport, it kicks with the message (never leaves them stuck).
+
+### 14.6 Look and feel (Phase 3 "make it look cool" pass)
+- Shared lighting preset in both places (afternoon sun, atmosphere, bloom, colour grade, sun rays).
+- Hub: roads, plaza, fountains, lamps, forest ring and purple World Gates with portal glow; gold ENTER button and dark-glass panels; toasts and a travel screen.
+- World: grass tile with stone rim, rim lamps, ring of trees and rocks, golden Hub Gate; banner, Cash chip, settings panel.
+- **Terrain handling:** the World place has terrain, which buried the tile and grew grass through it. The tile now carves terrain out above it, fills Ground (no grass decoration) underneath, and refills a Grass verge around the rim, leaving the gate step's footprint clear.
+- **UI gotcha found:** a `UIGradient` tints a button's *text* too, which made dark buttons' labels invisible. Buttons now use a neutral white→grey shading gradient over a solid colour.
+
+### 14.7 Security summary (Phase 3)
+- The client can't choose a destination, code, place or owner; prompts are handled on the server.
+- Access is checked in the hub **and** on arrival; friendship errors deny; unknown visibility denies.
+- Access codes never leave the server (not in attributes, remotes or teleport data).
+- `GetDataStore` itself can throw (unpublished place / API access off); every store access is guarded, and the hub card shows "Info unavailable" instead of hanging.
+- Private/FriendsOnly world names are only sent to admitted players.
+
+### 14.8 Testing
+- **Unit (local, Lune):** Hub 51/51, World 89/89 (AccessPolicy matrix 6, WorldDirectory 11: read-only peek, foreign record refused, create-once/reuse, index-before-meta order, race keeps first code, index repair, failures reported, store-access errors reported, Places.pick).
+- **Studio (2026-10-18):** Hub suites 68/68 and World 105/105 on the server. Hub: environment builds, gate on every plot, world card, ENTER MY WORLD click → server checks → "Travel between places only works in the live game" toast; unpublished DataStore → "Info unavailable". World: owner HUD, visibility pill click (toast, badge, sign), RETURN TO HUB click → Studio notice; visitor admitted to a Public world (banner "VISITING · by …", no owner widgets, `NotOwner` on every write); visitor refused for Private and FriendsOnly (real `IsFriendsWithAsync`), with the name hidden.
+- **Needs the published experience (🟡):** reserving and storing the access code with real DataStores, `TeleportAsync` both ways, live owner resolution from `PrivateServerId`, two players in the same running world, visitor recheck after a visibility change with a real visitor, teleport-failure handling, and the full live list in PROJECT_STATUS Milestone 3.
+
+### 14.9 Manual setup still required (Sterling)
+1. Publish the hub file (`Documents\MMORPG TYCOON.rbxl`) as a new private experience.
+2. Game Settings → Security → **Enable Studio Access to API Services**.
+3. Add the World place to that experience with a name containing "World", then publish `C:\Roblox Dev\MMORPG Tycoon\MMORPG TYCOON WORLD.rbxl` into it (open the file → File → Publish to Roblox As → pick the experience → the World place).
+4. Access Control for Places → *Secure within universe only*. Max Players: Hub 6, World 12.
+5. Then Claude runs the live travel tests with Sterling plus a second account.

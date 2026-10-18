@@ -13,6 +13,7 @@ local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local ServerStorage = game:GetService("ServerStorage")
 
+local DataKeys = require(script.Parent.Parent.Travel.DataKeys)
 local WorldConfig = require(script.Parent.WorldConfig)
 local WorldSchema = require(script.Parent.WorldSchema)
 
@@ -39,7 +40,7 @@ local function liveOwner(): (number?, string)
 	for attempt = 1, WorldConfig.MAX_ATTEMPTS do
 		ok, value = pcall(function()
 			local index = DataStoreService:GetDataStore(WorldConfig.WORLD_INDEX_STORE_NAME)
-			return index:GetAsync("ps_" .. game.PrivateServerId)
+			return index:GetAsync(DataKeys.indexKey(game.PrivateServerId))
 		end)
 		if ok then
 			break

@@ -18,6 +18,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
+local AccessPolicy = require(ReplicatedStorage.Shared.AccessPolicy)
 local Net = require(ReplicatedStorage.Shared.Net)
 
 local EconomyService = require(script.Parent.EconomyService)
@@ -31,12 +32,16 @@ local WorldSchema = require(script.Parent.WorldSchema)
 local WorldState = require(script.Parent.WorldState)
 local WorldStore = require(script.Parent.WorldStore)
 local RateLimiter = require(script.Parent.Parent.Util.RateLimiter)
+local Remotes = require(script.Parent.Parent.Util.Remotes)
+local Places = require(script.Parent.Parent.Travel.Places)
+local SafeTeleport = require(script.Parent.Parent.Travel.SafeTeleport)
 
 local Reason = Net.Reason
 
 local sessionId = HttpService:GenerateGUID(false)
 local store: WorldStore.WorldStore? = nil
 local settingsLimiter = RateLimiter.new(2, 4)
+local travelLimiter = RateLimiter.new(0.5, 2)
 local decided = Instance.new("BindableEvent") -- fires once the world is live or failed
 local saving = false
 
@@ -122,6 +127,67 @@ local function saveNow(release: boolean, why: string): boolean
 	return false
 end
 
+-- Send a player back to the hub (Studio has no teleports, so it falls back to a kick).
+local function sendToHub(player: Player, message: string?)
+	if player.Parent ~= Players then
+		return
+	end
+	if message then
+		Remotes.notify(player, "error", message)
+	end
+	local hub = Places.get()
+	if hub and SafeTeleport.isAvailable() then
+		Remotes.notify(player, "travel", "Returning to the hub...", "World Hub")
+		local ok = SafeTeleport.teleport(hub, { player })
+		if ok then
+			return
+		end
+	end
+	player:Kick(message or "Please rejoin the hub.")
+end
+
+-- Server-side entry check, the authoritative twin of the hub's check.
+local function accessDecision(player: Player): string
+	local world = WorldState.world
+	if world == nil then
+		return "invalid"
+	end
+	local isOwner = WorldState.isOwner(player)
+	local isFriend = false
+	if not isOwner and world.visibility == Net.Visibility.FriendsOnly then
+		local ok, friends = pcall(function()
+			return player:IsFriendsWithAsync(world.ownerUserId)
+		end)
+		isFriend = ok and friends == true -- unknown = not a friend (fail closed)
+	end
+	return AccessPolicy.decide(world.visibility, isOwner, isFriend)
+end
+
+-- Tell an admitted player the world's name. Sent privately (not as a replicated
+-- attribute) so a refused visitor never learns a non-Public world's name.
+local function grantWorldName(player: Player)
+	local world = WorldState.world
+	if world then
+		Remotes.notify(player, "worldname", world.name)
+	end
+end
+
+-- After a visibility change, send away anyone no longer allowed.
+local function recheckVisitors()
+	for _, player in Players:GetPlayers() do
+		if WorldState.isOwner(player) then
+			grantWorldName(player)
+		else
+			local decision = accessDecision(player)
+			if decision ~= "allowed" then
+				sendToHub(player, "The owner changed this world's visibility. " .. AccessPolicy.message(decision))
+			else
+				grantWorldName(player)
+			end
+		end
+	end
+end
+
 local function spawnPlayer(player: Player)
 	if player.Parent ~= Players then
 		return
@@ -132,12 +198,18 @@ local function spawnPlayer(player: Player)
 	end
 	if WorldState.isOwner(player) then
 		EconomyService.attach(player)
-	elseif not RunService:IsStudio() then
-		-- Visiting is the next phase; until access checks exist, only the owner may enter.
-		player:Kick("Visiting other worlds arrives in a later update.")
-		return
+		grantWorldName(player)
 	else
-		log(`{player.Name} is not the owner: Studio test visitor, view only`)
+		local decision = accessDecision(player)
+		if decision ~= "allowed" then
+			log(`{player.Name} refused entry: {decision}`)
+			sendToHub(player, AccessPolicy.message(decision))
+			return
+		end
+		log(`{player.Name} is visiting (view only)`)
+		grantWorldName(player)
+		local world = WorldState.world :: WorldSchema.World
+		Remotes.notify(player, "info", `Welcome to {world.name}! You're visiting - look around, building is owner-only.`)
 	end
 	local ok, err = pcall(function()
 		player:LoadCharacterAsync()
@@ -176,8 +248,24 @@ local function onPlayerAdded(player: Player)
 	spawnPlayer(player)
 end
 
+local function returnToHub(player: Player): Net.SettingsResult
+	if not travelLimiter:tryConsume(player) then
+		return { ok = false, reason = Reason.RateLimited }
+	end
+	if not SafeTeleport.isAvailable() then
+		Remotes.notify(player, "info", "Travel between places only works in the live game, not in Studio playtests.")
+		return { ok = false, reason = "StudioNoTeleport" }
+	end
+	if WorldState.isOwner(player) then
+		task.spawn(saveNow, false, "owner_travel")
+	end
+	sendToHub(player, nil)
+	return { ok = true }
+end
+
 local function onPlayerRemoving(player: Player)
 	settingsLimiter:forget(player)
+	travelLimiter:forget(player)
 	if WorldState.isOwner(player) then
 		task.spawn(saveNow, false, "owner_left")
 	end
@@ -206,6 +294,7 @@ local function setVisibility(player: Player, value: any): Net.SettingsResult
 		world.visibility = value
 		WorldState.markChanged()
 		PlotService.showWorldInfo(world.name, world.visibility, world.ownerUserId, WorldState.status)
+		task.spawn(recheckVisitors)
 	end
 	return { ok = true }
 end
@@ -297,6 +386,9 @@ function WorldSessionService.Init()
 		remote.Parent = folder
 	end
 
+	Remotes.func(Net.RequestReturnToHub)
+	Remotes.event(Net.Notify)
+
 	PlacementService.onChanged(function()
 		WorldState.markChanged()
 	end)
@@ -313,6 +405,24 @@ function WorldSessionService.Start()
 		warn(`[World] setVisibility error: {result}`)
 		return { ok = false, reason = Reason.Internal }
 	end
+
+	Remotes.func(Net.RequestReturnToHub).OnServerInvoke = function(player: Player)
+		local ok, result = pcall(returnToHub, player)
+		if ok then
+			return result
+		end
+		warn(`[World] returnToHub error: {result}`)
+		return { ok = false, reason = Reason.Internal }
+	end
+	local hubPrompt = PlotService.getHubGatePrompt()
+	if hubPrompt then
+		hubPrompt.Triggered:Connect(function(player: Player)
+			returnToHub(player)
+		end)
+	end
+	SafeTeleport.onFailure(function(player: Player, message: string)
+		Remotes.notify(player, "error", message)
+	end)
 
 	Players.PlayerAdded:Connect(onPlayerAdded)
 	Players.PlayerRemoving:Connect(onPlayerRemoving)
