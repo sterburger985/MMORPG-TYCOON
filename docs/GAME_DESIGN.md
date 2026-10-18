@@ -1,7 +1,7 @@
 # GAME_DESIGN — MMORPG Tycoon (Roblox)
 
 Part of [[MMORPG Tycoon]] · Working title, final name TBD by Sterling.
-Last updated: 2026-10-17 (Phase 0)
+Last updated: 2026-10-17 (revised for persistent player worlds; hub-and-world design)
 
 > Inspiration: the management and world-building loop of *MMORPG Tycoon 2* (Lazy Bear Games / Pat Wilson). We borrow **general gameplay ideas only** — no assets, code, UI layouts, names, or other protected content.
 
@@ -50,14 +50,49 @@ Reinvest Cash ◄── Subscription revenue ◄── Satisfaction & feedback
 - **Asset sources (quality bar):** custom-built assets only, made with Studio's procedural/mesh generation, Blender (Blender connector available), or hand-built parts. **No unvetted Toolbox free models**, which bring inconsistent style, hidden scripts and backdoors.
 - **World framing:** each plot is a raised "world tile" with a clear edge and a distinct ground biome, so a server reads as a row of separate MMO worlds.
 
-## 5. Multiplayer design
+## 5. Multiplayer design (revised 2026-10-17: persistent worlds)
 
-- **One server = several players, each with an individual plot** (proposed: up to 6 players and 6 plots per server).
-- Plots are spatially separated. Players can walk onto other plots and look, but **only the owner can build** on a plot (server-enforced).
+> **Changed.** The original design was "one server, six plots, everyone builds side by side, nothing saved". Sterling replaced it with **persistent, visitable player worlds**. The original text is kept at the end of this section for reference.
+
+**Every player owns one persistent MMORPG world, tied to their Roblox UserId.** The world is not tied to any server; it lives in saved data and is rebuilt whenever someone opens it.
+
+The game becomes **one Roblox experience with two places**:
+
+| Place | What it is | What players do there |
+|---|---|---|
+| **Hub** (the current map) | A shared social space. Each player in the server gets a plot that acts as their **world's showcase and portal**: sign with owner + world name, visibility badge, and an entrance. | Meet people, see whose worlds are around, **enter their own world**, **visit someone else's world**. No building in the hub. |
+| **World** | One server per active world, running that owner's saved world. | The **owner** builds and manages. **Visitors** walk around read-only. Changes are saved to the owner's world. |
+
+**Player journey**
+1. Join the game → arrive in the Hub (a normal public server). Your plot shows your world's name.
+2. Use your plot's portal (or the "My World" button) → you're teleported into **your** world, rebuilt from your save.
+3. Build. Your changes save automatically and when you leave.
+4. "Return to Hub" → back to a hub server.
+5. In the hub, pick another player's plot or world card → "Visit". If their world allows you, you're teleported in. If the world is already running (the owner or other visitors are there), **you join that same session**.
+
+**Visibility (owner-controlled, enforced by servers only)**
+- **Public:** anyone can visit.
+- **Friends Only:** only the owner's Roblox friends, checked by the server with Roblox's friends API.
+- **Private:** only the owner.
+- Visitors are **read-only** at first: they can walk and look, but can't build, remove, buy or change settings.
+- **Proposed default for new worlds: Public** (visitors can't change anything, and visiting is the social hook). Sterling to confirm.
+
+**When the owner leaves their world:** the world is saved immediately. Visitors already inside **may stay and keep exploring** (read-only), and the server closes when the last person leaves. New visitors can still enter while it's running, subject to visibility. *(Alternative Sterling may prefer: send visitors back to the hub when the owner leaves.)*
+
+**What's deliberately simple at first**
+- Visiting is started from the hub, by choosing **players in the same hub server** (and later, online friends). A global "browse all public worlds" list comes later.
+- No co-builders, no visitor interactions with objects, no likes or ratings yet.
+
+<details><summary>Original single-server design (superseded)</summary>
+
+- One server = several players, each with an individual plot (up to 6 players and 6 plots per server).
+- Plots are spatially separated. Players can walk onto other plots and look, but only the owner can build on a plot (server-enforced).
 - No player can affect another player's Cash or objects.
-- **Future:** visiting permissions (public / friends / private), likes or ratings, and loading an *offline* friend's saved world into a free plot or a reserved server.
+</details>
 
 ## 6. MVP scope (first playable version)
+
+> **Revised 2026-10-17.** Items 1–12 still hold, but building (items 4–10) now happens in **the owner's World place**, not on the hub plot. Two items move into the MVP because the new design needs them: **13. the world saves and reloads**, and **14. owners can enter and leave their world** (hub ↔ world travel). Visiting other worlds and visibility settings are the next step after the MVP (Milestone 3).
 
 1. Players join a server.
 2. Each player receives an individual plot.
@@ -86,14 +121,14 @@ Reinvest Cash ◄── Subscription revenue ◄── Satisfaction & feedback
 
 ## 7. Planned future systems (post-MVP, rough order)
 
-1. **Persistence:** save and load Cash and placed objects (strongly recommended immediately after the MVP; see open questions).
+1. **Persistence + world travel + visiting:** now the core of the design. See Milestones 1–3 in [[PROJECT_STATUS]] and TECHNICAL_ARCHITECTURE §12.
 2. **World expansion:** buy additional plot area or unlock new biomes.
 3. **Content objects with function:** monster spawners (level, density), quest-giver NPCs, dungeon entrances, shops, respawn points.
 4. **Simulated subscribers:** NPC adventurers with class, level, goals and satisfaction. They path through your world, fight spawned monsters, take quests and leave feedback.
 5. **Revenue model inside the sim:** subscription income per active subscriber per in-game day, plus upkeep costs.
 6. **Feedback feed:** subscriber chat bubbles and a complaints panel that tell you what to fix.
 7. **Progression:** developer level, object tiers and unlocks.
-8. **World visiting:** visit permissions, friend worlds, ratings and leaderboards.
+8. **World discovery:** a browsable list of public worlds, friend worlds, ratings and leaderboards (needs a global index; see TECHNICAL_ARCHITECTURE §12.10).
 9. **Monetization (real Robux):** cosmetic or convenience only, never pay-to-win. Designed late and deliberately.
 
 ## 8. Explicitly excluded from the MVP
@@ -102,11 +137,11 @@ Reinvest Cash ◄── Subscription revenue ◄── Satisfaction & feedback
 - Combat, monsters and player stats
 - Quests and NPCs of any kind
 - Subscriber simulation and revenue/income ticks
-- Visiting other servers' or offline players' worlds
+- Global public-world browser, ratings, likes (visiting players from the same hub server comes in Milestone 3)
+- Co-builders or visitor permissions beyond read-only
 - Monetization (game passes, developer products)
 - Object stacking or multi-storey building (MVP has a floor layer and an object layer only)
 - Free-form (off-grid) placement or non-90° rotation
-- Persistence (unless Sterling pulls it into the MVP; see open questions)
 
 ## 9. Open design questions (need Sterling's call)
 
@@ -117,6 +152,10 @@ Reinvest Cash ◄── Subscription revenue ◄── Satisfaction & feedback
 | 3 | Currency name | "Cash" (shown as `$`) |
 | 4 | Starting Cash | 2,000 |
 | 5 | Refund on removal | 100% during the MVP (encourages experimenting); revisit once income exists |
-| 6 | Persistence in the MVP? | Recommend making it the phase right after the core MVP |
+| 6 | Persistence in the MVP? | **Resolved 2026-10-17: yes.** Persistent worlds are now core. |
 | 7 | Touch controls in the MVP? | Yes (most Roblox players are on mobile) |
 | 8 | Game title | TBD (must not use "MMORPG Tycoon" branding for release) |
+| 9 | Default visibility for new worlds | Public (visitors are read-only) |
+| 10 | What happens to visitors when the owner leaves | They may stay until the world empties (alternative: send them to the hub) |
+| 11 | What's on a hub plot now that building moves to the World place | A showcase: owner sign, world name, visibility badge, portal pad. Later maybe a live preview. |
+| 12 | Max visitors per world | Same as World place Max Players (proposed 12) |

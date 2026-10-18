@@ -3,6 +3,8 @@
 Part of [[MMORPG Tycoon]] · See also [[GAME_DESIGN]], [[PROJECT_STATUS]]
 Last updated: 2026-10-17 (Phase 1). **Status: server side implemented and tested (Phase 1); client side not implemented.** Sections that changed during implementation are marked *(Phase 1)*.
 
+> **2026-10-17 revision:** the game is moving to a **hub place + per-world place** design with persistent, visitable worlds. See **§12**, which supersedes §5 and §9 and the single-server assumptions in §2 and §7. §12 is a plan: not implemented, not tested.
+
 ---
 
 ## 0. Principles
@@ -248,3 +250,154 @@ On {ok=false, reason} → red flash + toast with reason text
 | Performance | 6 plots filled to the limit | Fill script + scene analysis + MicroProfiler |
 
 Status labels used in all docs: **Not implemented** · **Implemented, not tested in Studio** · **Implemented and tested successfully** · **Known broken**.
+
+---
+
+## 12. Hub-and-World architecture (revision 2026-10-17) — **proposed, not implemented, not tested**
+
+This section supersedes §5 (data ownership, for Cash and placed objects), §9 (persistence) and the single-server parts of §2 and §7. Everything else (grid, rules, placement workflow, remotes, rate limiting) carries over unchanged into the World place.
+
+API facts below were checked against the official Roblox docs on 2026-10-17 (TeleportService, TeleportOptions, DataModel, Player, "Teleport between places", DataStore limits).
+
+### 12.1 Places and experience setup
+| | Hub place (start place) | World place |
+|---|---|---|
+| Source | the current place, `MMORPG TYCOON.rbxl` | new place added to the same experience |
+| Servers | normal public servers | **reserved servers only**: one access code per world |
+| Max Players | 6 (one hub plot each) | proposed 12 (owner + visitors) |
+| Building | none | owner only |
+| Rojo project | `hub.project.json` | `world.project.json` |
+
+Experience settings (Creator Dashboard):
+- **Access Control for Places → "Secure within universe only"** so the World place can only be entered by a server-initiated teleport from inside our experience, never by a direct join or client teleport.
+- **Enable Studio Access to API Services** (DataStores in Studio).
+- The experience must be **published** before any of this exists. TeleportService **does not work in Studio playtests**, so travel can only be tested in the live Roblox client (private/unlisted is fine).
+
+### 12.2 Sessions: one reserved server per world (no MemoryStore needed)
+Key facts from the Roblox docs:
+- `TeleportService:ReserveServerAsync(placeId)` returns an **access code** and a **PrivateServerId**.
+- Access codes **stay valid indefinitely**. Teleporting with a code when no server is running **starts a new server** for it.
+- **Only one server instance can run at a time for a given private/reserved server.** `game.PrivateServerId` stays the same across all of its instances; `JobId` differs per instance.
+- Reserved servers are **not** kept alive. They shut down when empty, like any server.
+
+**Design:** each world gets **exactly one access code, created once and stored** in its metadata. Everyone who opens that world (owner or visitor) is teleported with the **same** code, so:
+- if the world is running, they **join the existing session** (no duplicates are possible, because Roblox only runs one instance per code);
+- if it isn't, Roblox **starts a fresh session**, which loads the world from the DataStore.
+
+This meets "join existing / start new / avoid duplicates" **without MemoryStoreService, MessagingService or a custom registry.** Those stay out until a real need appears, for example a global list of *currently active* worlds (§12.10).
+
+Known edge: **a full world.** If the reserved server is at Max Players, the teleport fails (TeleportInitFailed). The hub shows "That world is full" and leaves the player in the hub.
+
+### 12.3 World identity (where the server learns whose world it is)
+The World server **never trusts the client or teleport data** to tell it which world to load. TeleportData is sent through the client unencrypted (Roblox docs).
+1. When the access code is created (hub), the hub writes an index entry `WorldIndex_v1 / ps_<PrivateServerId> = ownerUserId`.
+2. When a World server starts, it reads `game.PrivateServerId`, looks up the index, and gets the owner's UserId from our own DataStore.
+3. If `PrivateServerId == ""` (not a reserved server) or the lookup fails:
+   - **live:** the server is invalid. Teleport everyone to the hub, load nothing.
+   - **Studio only** (`RunService:IsStudio()`): **dev mode** loads the local tester's own world (`w_<theirUserId>`) so loading and saving can be tested without teleports.
+
+### 12.4 Data model (DataStores)
+Three stores. Each key holds one small, versioned, JSON-safe table. Workspace instances are **never** serialized.
+
+**A. `WorldMeta_v1` / `w_<ownerUserId>`** (small; read by hub and world)
+```lua
+{
+  v = 1,
+  ownerId = 123,
+  name = "Sterling's World",       -- filtered with TextService before display to others
+  visibility = "Public",           -- "Public" | "Friends" | "Private"
+  accessCode = "<reserved code>",  -- server-only, never sent to clients
+  privateServerId = "<id>",
+  createdAt = 1760000000,
+  updatedAt = 1760000000,
+  stats = { objects = 42 },        -- for hub display; no layout data
+}
+```
+
+**B. `WorldData_v1` / `w_<ownerUserId>`** (the world itself; written only by that world's server)
+```lua
+{
+  v = 1,
+  ownerId = 123,
+  lock = { job = "<JobId>", t = 1760000000 },   -- session lock (12.6)
+  savedAt = 1760000000,
+  saveCount = 17,
+  economy = { cash = 2000 },
+  progression = { level = 1, xp = 0, unlocks = {} },
+  nextId = 43,
+  placed = {                        -- compact array; ids are strings "p<n>"
+    { id = "p1", i = "oak_tree", x = 10, z = 10, r = 0 },
+    { id = "p2", i = "cottage",  x = 20, z = 10, r = 1 },
+  },
+  npcs = {}, monsters = {}, quests = {},  -- reserved for future systems (validated as empty in v1)
+}
+```
+
+**C. `WorldIndex_v1` / `ps_<PrivateServerId>`** → `ownerUserId` (written once per world)
+
+**Size budget:** about 45 bytes of JSON per placed object. A cap of **2,000 objects per world** is about 90 KB, far under the **4 MB per-key** limit. The save code measures `#HttpService:JSONEncode(data)` before writing and refuses (keeping the old save) above a safety threshold of 3 MB.
+
+**Why split Meta and Data:** settings changes (name, visibility) and access code creation never compete with the big world save, and the hub never has to read or lock the world's layout.
+
+### 12.5 Loading a world (World server)
+1. Resolve the owner (12.3).
+2. `UpdateAsync(WorldData, w_<owner>)` **acquires the session lock**: take it if it's absent, ours, or stale (older than 10 minutes); otherwise retry for about 30 seconds, then open **read-only** with a warning.
+3. **Distinguish "no save yet" from "load failed".** `nil` → create the default world. A DataStore error → retry with backoff; if it still fails, open **read-only** and **never overwrite** with defaults.
+4. **Migrate** (`v` → current) and **validate** every entry with a pure, unit-tested `WorldSchema` module: known item id (ItemCatalog), integer cells, rot 0–3, in bounds, no same-layer overlap (PlacementRules), cap respected, ids unique. Invalid entries are **dropped and logged**, never trusted.
+5. Rebuild the world with the same server spawn function PlacementService uses. The load path never goes through the remote, so it can't bypass or double-charge.
+
+### 12.6 Saving and concurrency rules (must hold)
+| Rule | Why |
+|---|---|
+| Only the World server **holding the lock** writes `WorldData`. Every write is `UpdateAsync` that checks `lock.job == game.JobId` and aborts otherwise. | Overlap risk: an old instance still saving in `BindToClose` while a new instance starts (Roblox runs one instance per code, but shutdown and startup can overlap by seconds). |
+| The lock is refreshed on every save (`t = os.time()`), released (set to nil) on the final save. Stale after 10 minutes. | A crashed server can't block the world forever. |
+| `WorldMeta` is changed only with `UpdateAsync` that edits **single fields** and keeps the rest. | The hub (creating the access code) and the world (changing settings) can touch Meta without clobbering each other. |
+| Access code creation uses `UpdateAsync` and **keeps an existing code** if one appears first. The losing reservation is discarded. | Two hub servers can't give one world two codes. |
+| Saves happen: on every change marked dirty, batched by an **autosave every 60 s**; when the **owner leaves**; and in **`game:BindToClose`** (30-second window). Saves are skipped when nothing changed. | Stays well under the write budget (60 + 40 × players per minute per server). |
+| A failed save keeps `dirty = true` and retries with backoff. The previous good save is untouched because `UpdateAsync` is atomic per key. | No partial or corrupt saves. |
+| Visitors never cause writes. | Read-only. |
+
+### 12.7 Travel
+**Hub → own world:** client → `RequestEnterMyWorld` (no arguments). The server ensures Meta exists, creates the access code if missing (`ReserveServerAsync(WORLD_PLACE_ID)` + index entry), then `TeleportAsync(WORLD_PLACE_ID, {player}, options{ReservedServerAccessCode})`, wrapped in a **SafeTeleport** helper (pcall + retries; `TeleportInitFailed` handling; user-facing error).
+
+**Hub → visit:** client → `RequestVisitWorld(ownerUserId)`. The server validates: the argument is a positive integer; the target is **a player currently in this hub server** (Milestone 3 scope; friends-online later); Meta exists; access is allowed (12.8). Then it teleports with the **target world's** code. The client never sees or supplies codes.
+
+**World → hub:** client → `RequestReturnToHub`. The server calls `TeleportAsync(HUB_PLACE_ID, {player})` into a public hub server.
+
+**Teleport data:** cosmetic only (for example "came from the hub"). Never used for identity or permissions.
+
+### 12.8 Access control (server-enforced twice)
+Pure function `AccessPolicy.canVisit(visibility, isOwner, isFriend) -> boolean`, unit-tested:
+- Owner → always allowed.
+- Public → allowed.
+- Friends → `visitor:IsFriendsWithAsync(ownerId)` on the **server** (pcall; an error means **deny**, so it fails closed).
+- Private → denied.
+
+Checked **in the hub before teleporting** (for a friendly error message) **and again in the World server on `PlayerAdded`** (authoritative). A non-allowed player is teleported back to the hub immediately and never receives world data. Because the World place is "Secure within universe only", the only way in is our own server teleport.
+
+**Changing settings:** only from inside your own world (the owner is in that server), via `RequestSetVisibility(v)` / `RequestRenameWorld(name)`. The server validates the enum and length and **filters names with `TextService:FilterStringAsync`**. After a visibility change, the server **re-checks every visitor present** and sends now-unauthorized ones to the hub. Because changes only happen in the world's own server, no cross-server messaging is needed.
+
+**Building:** PlacementService's existing `canBuild` choke point becomes `player.UserId == worldOwnerId and not readOnly`.
+
+**Information exposure:** the hub shows a world's name, owner and visibility badge. It never sends layout data, access codes or PrivateServerIds to clients.
+
+### 12.9 Code layout (proposed)
+```
+src/shared/              (unchanged) Config, Net, GridMath, ItemCatalog, PlacementRules
+                         + AccessPolicy, WorldSchema (pure, unit-tested)
+src/server/common/       WorldStore (DataStore wrapper: meta, data, index, lock, retries),
+                         SafeTeleport, RateLimiter (moved from Util)
+src/server/hub/          Main.server, HubPlotService (= today's PlotService), TravelService
+src/server/world/        Main.server, WorldSessionService (owner, lock, access gate),
+                         WorldDataService (load/validate/save), WorldPlotService (single plot),
+                         PlacementService, EconomyService (existing, re-pointed)
+src/client/hub/ , src/client/world/   (UI, Phase 2 work lands in world/)
+hub.project.json, world.project.json  (each maps shared + common + its own folders)
+tests/                    + WorldSchema_Test, AccessPolicy_Test, WorldStore_Test (fake DataStore)
+```
+
+### 12.10 Deliberately deferred
+- **MemoryStoreService:** only when we want a live list of active worlds or visitor counts across hub servers.
+- **MessagingService:** only when settings must change from outside the world (for example from the hub) while the world is running.
+- **ProfileStore:** reconsider if the hand-written lock in 12.6 proves fragile in live tests.
+- **Global public-world browser:** needs an OrderedDataStore or MemoryStore index. It comes after Milestone 3.
