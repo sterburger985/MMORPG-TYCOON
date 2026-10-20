@@ -12,6 +12,7 @@ local UI = require(script.Parent:WaitForChild("UI"))
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Continent = require(Shared:WaitForChild("Continent"))
 local RegionConfig = require(Shared:WaitForChild("RegionConfig"))
+local Sections = require(Shared:WaitForChild("Sections"))
 
 local player = Players.LocalPlayer
 local screen = UI.screen("RegionHud", 3)
@@ -32,6 +33,17 @@ local sub = UI.heading({
 	Text = "",
 	MaxTextSize = 22,
 	TextColor3 = UI.Colors.glow,
+	TextTransparency = 1,
+	TextStrokeTransparency = 1,
+})
+
+-- Smaller line for the section (the piece of land) you are standing in.
+local place = UI.heading({
+	Parent = banner,
+	Position = UDim2.new(0, 0, 0, 86),
+	Size = UDim2.new(1, 0, 0, 22),
+	Text = "",
+	MaxTextSize = 18,
 	TextTransparency = 1,
 	TextStrokeTransparency = 1,
 })
@@ -59,6 +71,20 @@ local function show(region)
 	end)
 end
 
+local placeToken = 0
+local function showPlace(section, alone: boolean)
+	placeToken += 1
+	local token = placeToken
+	place.Text = "◆ " .. section.name .. " ◆"
+	TweenService:Create(place, FADE, { TextTransparency = 0, TextStrokeTransparency = 0.2 }):Play()
+	task.delay(if alone then 3 else 4, function()
+		if token ~= placeToken then
+			return
+		end
+		TweenService:Create(place, FADE, { TextTransparency = 1, TextStrokeTransparency = 1 }):Play()
+	end)
+end
+
 local function mood(region)
 	local atmosphere = Lighting:FindFirstChildOfClass("Atmosphere")
 	if not atmosphere then
@@ -74,6 +100,7 @@ local function mood(region)
 end
 
 local current: string? = nil
+local currentSection = 0
 local lastPos: Vector3? = nil
 while true do
 	task.wait(0.5)
@@ -84,14 +111,22 @@ while true do
 		if lastPos == nil or (pos - lastPos).Magnitude > 6 then
 			lastPos = pos
 			local id = Continent.regionIdAt(pos.X, pos.Z)
+			local sectionIndex = Sections.indexAt(pos.X, pos.Z)
+			local section = Sections.all()[sectionIndex]
 			if id ~= current then
 				local region = RegionConfig.get(id)
 				if region then
 					current = id
 					mood(region)
 					show(region) -- also the welcome banner on arrival
+					if section then
+						showPlace(section, false)
+					end
 				end
+			elseif sectionIndex ~= currentSection and section then
+				showPlace(section, true)
 			end
+			currentSection = sectionIndex
 		end
 	end
 end

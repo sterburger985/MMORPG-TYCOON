@@ -701,3 +701,84 @@ Saved player worlds are unaffected because the plot stays at the origin.
 - Phone performance hasn't been measured.
 - The square sea edge is visible only from very high up.
 - Roads are painted terrain (Asphalt/Ground), not paths that NPCs can follow yet. Phase 6 will turn `RegionConfig.ROADS` into waypoint graphs.
+
+---
+
+## 17. Phase 5b: buildable sections and natural borders (2026-10-19)
+
+### 17.1 What it is
+The continent is divided into **57 named sections** (4–8 per region). Sections are visual divisions with stable ids. Building permissions are unchanged: the server still allows building only on the owner's 64×64 plot, which sits deep inside `GH_StartingMeadow`. Nothing in saved world data refers to sections, so no migration was needed.
+
+### 17.2 Data and queries
+- `RegionConfig.SECTIONS[regionId]` holds `{ id, name, x, z, weight }` seeds. Ids are stable; never rename or reuse one.
+- `RegionConfig.BORDER_STYLES[regionId]` holds the border look for each region:
+  - `height`, `radius`: size of the bank
+  - `bank`: terrain material of the raised edge
+  - `crest`, `crestAbove`: patches of the biome's ground on top
+  - `decor`, `decorChance`: border props
+  - `runs`: fences and walls, which switch on in stretches
+  - `trees`: tree lines
+  - `naturalChance`, `naturalDecor`: markers along natural edges
+  - `stone`, `edgeChance`, `edgeMaterial`: half-buried edge stones
+- `Shared.Sections` is pure and deterministic, and it never changes Continent's maths:
+  - `Sections.indexAt(x, z)` / `Sections.at(x, z)`: the point's own region (`Continent.regionIdAt`), then the nearest seed of that region in a gently warped space (46 + 16 stud warp) minus the seed's weight.
+  - `Sections.plan(yieldFn?)`:
+    1. rasterises sections at 4 studs
+    2. takes border cells, grouped into 8-stud super-cells per section pair, as border points
+    3. computes a PCA tangent for each point
+    4. classifies each point against the landscape
+    5. finds road gateways where a road changes section
+    6. picks trail entrances for every neighbouring pair (the flattest bank point near the middle of the shared edge, away from gateways)
+    7. plans props (kept clear of existing scenery)
+
+### 17.3 Point classification
+| Kind | When | Built |
+|---|---|---|
+| `sea` | coast / open sea | nothing (no coastal walls) |
+| `water` | river, lake, pond | nothing (water is the border) |
+| `blocked` | landmark clear radius, plot meadow (r < 230), crater, lava | nothing |
+| `gap` | within 16 studs of a road, sign, or trail entrance | nothing (it is the entrance) |
+| `natural` | local slope > 0.7, a natural crest (both sides drop > 6), or a side slope > 0.5 across the border | biome markers only (boulders, spires, arches) |
+| `low` | bank runs shorter than 4 points (broken up by water, roads) | props only |
+| `ridge` | everything else | embankment + props |
+
+### 17.4 Builder (`WorldTools.BorderBuilder`, edit mode only)
+- **Terrain is additive.** Each ridge point gets:
+  - a `FillBlock` core of the bank material, 1.05 × radius wide and 11.5 long, aligned to the tangent and tilted with the ground
+  - a crest ball, using the bank material or crest patches
+  - a wide skirt ball of the biome ground that blends the foot
+- **Trail entrances:** `ReplaceMaterial` lays a worn path across the gap (Mirehollow uses a plank `Walkway` instead), with a `Waystone` either side.
+- **Road gateways:** a pair of taller lantern waystones, tinted in the region colour.
+- **Props:** `BorderKit` and `Scenery` kinds are seated on the real surface by raycasts from y = 600. Linear pieces follow the ground pitch and are skipped if they would be hidden. Everything goes into `Workspace.Continent.SectionBorders`, marked `Permanent` with `BordersVersion`.
+- **Existing scenery** standing in a new bank is lifted onto it. Its original height is kept in `BorderBaseY`, and every rebuild restores it first.
+- **`build()` is idempotent:** identical terrain fills and a replaced props folder.
+- **`remove()`** rewrites the base terrain with `ContinentBuilder.buildTerrain`, restores lifted scenery and deletes the props.
+- **Measured:** 2,499 bank segments, 43 gateways, 70 trail entrances, 2,148 props, 6,197 parts (0 queryable, 0 touchable, all anchored), about 45 s including `remove()`.
+
+### 17.5 Protection
+- **Placement:** `PlacementRules.check` bounds every request to the plot grid (`OutOfBounds`), so borders can never block or be built on.
+- **Removal:** `RequestRemove` only finds ids in the owner's saved records (`NotFound` for anything else). The remove-mode raycast only includes `WorldPlot.Placed`, and border parts have `CanQuery = false`.
+- **Saving:** saves never read `Workspace.Continent`, so borders are never in the saved-object list.
+
+### 17.6 Tests
+`tests/common/Sections_Test.luau` (10 tests):
+- continent fingerprint unchanged
+- 4+ named sections per region with unique ids
+- seeds on land in their own region and section
+- plot deep inside Starting Meadow
+- irregular, varied sizes
+- each section one connected piece of land
+- banks off the plot, landmarks, water and roads, and within the height cap (≤ 9)
+- every neighbouring pair connected, with trail gaps clear
+- prop budget (≤ 6,500 parts) with all ten styles used
+- deterministic
+
+Studio-only checks:
+- automated fit check (floating or hidden props)
+- real remote calls for place, remove and refund, outside-plot placement, and border removal
+- reload of a saved world
+- frame time
+
+### 17.7 Tools
+- `tools/render-continent.luau <place> out.ppm 4 sections [layout.json]` previews borders, gateways and trails, prints counts, budget and connections, and optionally exports the layout.
+- `tools/section-map.py base.ppm layout.json out.png` draws the labelled section map.

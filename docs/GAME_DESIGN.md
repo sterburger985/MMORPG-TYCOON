@@ -74,6 +74,24 @@ Design rules:
 - Walking into a region shows its name and recommended level, and the sky shifts to its mood.
 - Building happens only on your plot. The continent is permanent scenery for now.
 
+### 4.2 Buildable sections and borders (Phase 5b, 2026-10-19)
+Inside every region the land is split into **named sections**: irregular pieces of land of different sizes (57 in all), in the spirit of MMORPG Tycoon 2's raised land parcels. Examples: Greenhaven's Starting Meadow (your plot), Elder Oak Hill, North Fields, Silverrun Bend, Mirrormere Shore, South Downs.
+
+- **Borders fit their biome:**
+  - low earth banks with stones and fences (Greenhaven)
+  - mossy rock banks with dense tree lines (Whisperwood, Verdantwild)
+  - sandstone walls (Sunscar)
+  - green banks and plank walkways (Mirehollow)
+  - stone walls in the valleys and natural ridges on the peaks (Frostpeak)
+  - rock and snow with ice spikes (Glacial)
+  - dark basalt (Ashenreach)
+  - violet stone with crystals and leaning arches (Starfall)
+  - monumental dark walls (Dragon's End)
+- **Existing features are reused:** cliffs, crests, rivers and lakes act as the border instead of having a wall built on them. The coast is never walled.
+- **Entrances share one language:** carved waystones with a glowing gem in the region's colour. Tall lantern pairs mark road gateways; smaller pairs flank trail gaps.
+- **Walking into a new section** shows its name under the region banner.
+- **Sections are visual for now.** You still build only on your plot. The stable section ids are ready for a later "unlock more land" progression (not designed yet).
+
 ## 5. Multiplayer design (revised 2026-10-17: persistent worlds)
 
 > **Changed.** The original design was "one server, six plots, everyone builds side by side, nothing saved". Sterling replaced it with **persistent, visitable player worlds**. The original text is kept at the end of this section for reference.

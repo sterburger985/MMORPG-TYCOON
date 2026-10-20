@@ -4,6 +4,34 @@ Part of [[MMORPG Tycoon]] · Newest entry at the top.
 
 ---
 
+## 2026-10-19 — Phase 5b: buildable sections and natural borders
+
+### Request
+Sterling's brief: divide the existing continent into enclosed, irregular buildable sections with raised, biome-appropriate borders (MMORPG Tycoon 2 as the visual reference). Keep the continent, build mode, persistence and ownership intact; add entrances; test A–K and report honestly. Added: "you don't only have to build mountains, you can use dense trees, or any other ways to build the border", plus a reference sheet (grassland, forest and desert boundary close-ups and region build areas).
+
+### What happened
+- **Inspected first:** placement is bounded to the 64×64 plot grid on the server, the remove tool only hits the player's own placed objects, and saves never read the continent. So sections stay visual, with stable ids, and no saved data changes.
+- **Backup:** `World-before-borders-2026-10-19.rbxl`, downloaded before any change.
+- **Design:** `RegionConfig.SECTIONS` (57 named seeds) and `BORDER_STYLES` (one per region), plus a pure `Sections` module (raster → border points → classification → gateways → trail entrances → props). It was tuned offline with the Lune renderer and tests until every seed was on land, no section was split, and every neighbouring pair was connected.
+- **Studio connector now works** (execute_luau, screen capture). Installs still use the rbxm import (HTTP is off, and turning it on would change security settings).
+- **Built and reworked in Studio:**
+  1. Soft grass banks were invisible → steeper banks.
+  2. Still grass-on-grass → banks made of a contrasting material with grass patches, plus half-buried edge stones.
+  3. Props seated by rays starting at y = 80 were buried on high ground → rays now start at y = 600.
+  4. Short banks broken up by water looked like lumps, and banks on natural crests were redundant → these now get props only.
+  5. Narrow cores rendered as sharp roofs → wider flat-topped cores.
+  6. Forest borders were lost among existing trees → dense tree lines, as Sterling suggested.
+  7. Mountain edges were unreadable → per-biome boulders, spires and arches.
+- **Tests:** see PROJECT_STATUS (A–K all checked; phone performance not measured).
+- **Published** the World place (v18).
+
+### Problems
+- Studio lost its Team Create connection twice during play tests. Reconnecting kept all edits.
+- A test loop misread the place remote's result table and placed 19 extra stone paths in the Studio test world. They were removed with the normal remove tool (refunds verified), and the world is back to 18 objects and $544.
+- Pre-existing, not changed: the swamp causeway renders as plank wedges, and most swamp pools don't show at 4-stud voxels.
+
+---
+
 ## 2026-10-18 (evening) — Phase 5: complete world map overhaul
 
 ### Request

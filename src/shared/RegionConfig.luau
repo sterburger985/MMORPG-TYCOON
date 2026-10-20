@@ -449,4 +449,209 @@ RegionConfig.LAVA = {
 	{ points = { { -230, -1210 }, { -380, -1260 }, { -470, -1340 } }, width = 6 },
 }
 
+---------------------------------------------------------------------------------------
+-- Buildable sections (Phase 5b). Each region is split into smaller, irregular pieces of
+-- land, each with its own name. A section is the part of its region nearest (in a
+-- gently warped space) to its seed; weight makes a section larger. Section ids are
+-- stable: never rename or reuse one (future unlocking will key on them). Borders are
+-- built along section edges by WorldTools.BorderBuilder; Continent's terrain maths is
+-- untouched.
+---------------------------------------------------------------------------------------
+export type SectionDef = { id: string, name: string, x: number, z: number, weight: number? }
+
+RegionConfig.SECTIONS = ({
+	Greenhaven = {
+		{ id = "GH_StartingMeadow", name = "Starting Meadow", x = 0, z = 0, weight = 150 },
+		{ id = "GH_ElderOakHill", name = "Elder Oak Hill", x = 130, z = 390, weight = 0 },
+		{ id = "GH_NorthFields", name = "North Fields", x = 40, z = -400, weight = 0 },
+		{ id = "GH_SilverrunBend", name = "Silverrun Bend", x = 270, z = -250, weight = 0 },
+		{ id = "GH_MirrormereShore", name = "Mirrormere Shore", x = -240, z = 480, weight = 0 },
+		{ id = "GH_SouthDowns", name = "South Downs", x = 60, z = 520, weight = 20 },
+	},
+	Whisperwood = {
+		{ id = "WW_HeartrootGlade", name = "Heartroot Glade", x = -700, z = 230, weight = 30 },
+		{ id = "WW_OvergrownRuins", name = "Overgrown Ruins", x = -520, z = 40, weight = 0 },
+		{ id = "WW_MossbrookClearing", name = "Mossbrook Clearing", x = -560, z = 430, weight = 0 },
+		{ id = "WW_WestwoodDeep", name = "Westwood Deep", x = -960, z = 80, weight = 20 },
+		{ id = "WW_FernHollow", name = "Fern Hollow", x = -860, z = 300, weight = 0 },
+		{ id = "WW_BrambleEdge", name = "Bramble Edge", x = -370, z = 150, weight = -20 },
+	},
+	SunscarDesert = {
+		{ id = "SD_ArchFlats", name = "Arch Flats", x = -860, z = -520, weight = 20 },
+		{ id = "SD_TempleSands", name = "Temple Sands", x = -640, z = -300, weight = 0 },
+		{ id = "SD_DuneSea", name = "Dune Sea", x = -650, z = -660, weight = 0 },
+		{ id = "SD_MesaReach", name = "Mesa Reach", x = -1110, z = -640, weight = 20 },
+		{ id = "SD_RedDunes", name = "Red Dunes", x = -1000, z = -300, weight = 0 },
+		{ id = "SD_ScorchCanyon", name = "Scorch Canyon", x = -860, z = -820, weight = -10 },
+	},
+	Mirehollow = {
+		{ id = "MH_TowerIsle", name = "Tower Isle", x = -150, z = -620, weight = 0 },
+		{ id = "MH_ReedbankClearing", name = "Reedbank Clearing", x = -300, z = -460, weight = 0 },
+		{ id = "MH_BogLanding", name = "Bog Landing", x = -30, z = -470, weight = 0 },
+		{ id = "MH_Deepmire", name = "Deepmire", x = -380, z = -690, weight = 20 },
+		{ id = "MH_NorthMire", name = "North Mire", x = -100, z = -760, weight = 0 },
+	},
+	Frostpeak = {
+		{ id = "FP_ShrinePlateau", name = "Shrine Plateau", x = 560, z = -760, weight = 0 },
+		{ id = "FP_PineHollow", name = "Pine Hollow", x = 330, z = -460, weight = 0 },
+		{ id = "FP_PassCamp", name = "Pass Camp", x = 660, z = -470, weight = 0 },
+		{ id = "FP_SilverFalls", name = "Silver Falls", x = 280, z = -680, weight = 20 },
+		{ id = "FP_EastRidge", name = "East Ridge", x = 1000, z = -640, weight = 30 },
+		{ id = "FP_HighValley", name = "High Valley", x = 820, z = -900, weight = 0 },
+		{ id = "FP_SouthSpur", name = "South Spur", x = 450, z = -260, weight = -10 },
+		{ id = "FP_StormcragCoast", name = "Stormcrag Coast", x = 1250, z = -600, weight = 0 },
+	},
+	Verdantwild = {
+		{ id = "VW_TempleClearing", name = "Temple Clearing", x = 800, z = 260, weight = 30 },
+		{ id = "VW_VineHollow", name = "Vine Hollow", x = 560, z = 10, weight = 0 },
+		{ id = "VW_JadeFalls", name = "Jade Falls", x = 960, z = -150, weight = 0 },
+		{ id = "VW_SouthCanopy", name = "South Canopy", x = 560, z = 400, weight = 0 },
+		{ id = "VW_EastShore", name = "East Shore", x = 1020, z = 60, weight = 0 },
+	},
+	GlacialExpanse = {
+		{ id = "GE_RimeCave", name = "Rime Cave", x = 290, z = -1090, weight = 0 },
+		{ id = "GE_FrostmereSpires", name = "Frostmere Spires", x = 590, z = -1400, weight = 50 },
+		{ id = "GE_Northwind", name = "Northwind", x = 260, z = -1620, weight = 0 },
+		{ id = "GE_WhitePlain", name = "White Plain", x = 900, z = -1130, weight = 0 },
+		{ id = "GE_GlimmerFjord", name = "Glimmer Fjord", x = 880, z = -1580, weight = 0 },
+		{ id = "GE_EastShelf", name = "East Shelf", x = 1060, z = -1260, weight = -10 },
+	},
+	Ashenreach = {
+		{ id = "AR_CinderMaw", name = "The Cinder Maw", x = -230, z = -1240, weight = 80 },
+		{ id = "AR_AshKeep", name = "Ash Keep", x = -60, z = -990, weight = 0 },
+		{ id = "AR_EmberFlats", name = "Ember Flats", x = -460, z = -980, weight = 0 },
+		{ id = "AR_SmokeRise", name = "Smoke Rise", x = -250, z = -1540, weight = 0 },
+		{ id = "AR_EastCinders", name = "East Cinders", x = -40, z = -1420, weight = -20 },
+	},
+	StarfallHighlands = {
+		{ id = "SH_ObservatoryPlateau", name = "Observatory Plateau", x = -1000, z = -1150, weight = 0 },
+		{ id = "SH_CrystalTerrace", name = "Crystal Terrace", x = -800, z = -960, weight = 0 },
+		{ id = "SH_MoonlitFlats", name = "Moonlit Flats", x = -1180, z = -920, weight = 0 },
+		{ id = "SH_StarlitTerraces", name = "Starlit Terraces", x = -740, z = -1300, weight = 0 },
+		{ id = "SH_WestCliffs", name = "West Cliffs", x = -1200, z = -1240, weight = -10 },
+	},
+	DragonsEnd = {
+		{ id = "DE_CitadelHeights", name = "Citadel Heights", x = -590, z = -1600, weight = 70 },
+		{ id = "DE_WestFangs", name = "West Fangs", x = -1060, z = -1560, weight = -40 },
+		{ id = "DE_EastSpires", name = "East Spires", x = -190, z = -1760, weight = 0 },
+		{ id = "DE_NorthCrown", name = "North Crown", x = -500, z = -1800, weight = 0 },
+		{ id = "DE_BonewatchRidge", name = "Bonewatch Ridge", x = -840, z = -1460, weight = -10 },
+	},
+} :: any) :: { [string]: { SectionDef } }
+
+-- How section borders look in each region. All heights are studs above the ground.
+--   height: embankment height range; radius: footprint half-width range (studs)
+--   bank: terrain material of the raised edge (exposed earth, rock, sandstone...),
+--   chosen to contrast with the ground around it so the border reads from afar
+--   crest/crestAbove: the biome's own ground grows over the crest where noise exceeds
+--   crestAbove (grass tufts on an earth bank, snow on rock), so banks look natural
+--   decor: weighted props on the ridge; decorChance = share of ridge points with one
+--   runs: linear runs (fence, stone edging, walls) that switch on in stretches
+--   trees: a tree line along the border (Sterling: dense trees can be a border too)
+--   stone/edgeChance/edgeMaterial: half-buried edge stones along the crest (the low
+--   "stone edging" that makes a bank read as a border from the normal camera)
+--   gate/waystone colours: the shared entrance language, tinted per region
+export type BorderStyle = {
+	label: string,
+	height: { number },
+	radius: { number },
+	bank: string,
+	crest: string,
+	crestAbove: number,
+	decorChance: number,
+	decor: { { kind: string, weight: number } },
+	runs: { kind: string, above: number }?,
+	trees: { kind: string, chance: number }?,
+	stone: { number },
+	naturalChance: number?, -- share of natural-edge points (slopes, crests) with a marker
+	naturalDecor: { { kind: string, weight: number } }?, -- markers for natural edges
+	edgeChance: number, -- share of crest points with a half-buried edge stone
+	edgeMaterial: string, -- part material of the edge stones
+}
+
+RegionConfig.BORDER_STYLES = ({
+	Greenhaven = {
+		label = "Low grassy embankments, exposed earth, scattered stones and wooden fencing",
+		height = { 4, 6 }, radius = { 7, 9 }, bank = "Ground", crest = "Grass", crestAbove = 0.1,
+		decorChance = 0.3, decor = { { kind = "Rock", weight = 4 }, { kind = "Shrub", weight = 4 } },
+		runs = { kind = "FenceRun", above = 0.18 },
+		stone = { 150, 146, 136 },
+		edgeChance = 0.55, edgeMaterial = "Rock",
+	},
+	Whisperwood = {
+		label = "Mossy rocks, exposed roots, low stone ridges and dense tree lines",
+		height = { 4, 6 }, radius = { 7, 9 }, bank = "Rock", crest = "LeafyGrass", crestAbove = 0.12,
+		decorChance = 0.25, decor = { { kind = "MossyRock", weight = 4 }, { kind = "RootTangle", weight = 3 }, { kind = "Log", weight = 1 }, { kind = "Fern", weight = 2 } },
+		trees = { kind = "ForestTree", chance = 0.45 },
+		stone = { 112, 128, 98 },
+		edgeChance = 0.5, edgeMaterial = "Rock",
+	},
+	SunscarDesert = {
+		label = "Sandstone ridges, rocky edges and eroded stone formations",
+		height = { 5, 8 }, radius = { 7, 10 }, bank = "Sandstone", crest = "Sand", crestAbove = 0.3,
+		decorChance = 0.2, decor = { { kind = "SandRock", weight = 4 }, { kind = "SandstoneStack", weight = 4 }, { kind = "DesertShrub", weight = 1 }, { kind = "Cactus", weight = 1 } },
+		runs = { kind = "SandstoneWall", above = 0.3 },
+		stone = { 196, 140, 92 },
+		edgeChance = 0.6, edgeMaterial = "Sandstone",
+	},
+	Mirehollow = {
+		label = "Muddy banks, moss-covered rocks, raised earth and wooden walkways",
+		height = { 3, 4.5 }, radius = { 7, 9 }, bank = "LeafyGrass", crest = "Mud", crestAbove = 0.25,
+		decorChance = 0.25, decor = { { kind = "MossyRock", weight = 3 }, { kind = "Reeds", weight = 4 }, { kind = "SwampTree", weight = 1 }, { kind = "RootTangle", weight = 1 } },
+		stone = { 98, 104, 86 },
+		edgeChance = 0.45, edgeMaterial = "Rock",
+	},
+	Frostpeak = {
+		label = "Rocky ridges and natural stone walls; steep slopes are left as the border",
+		height = { 4.5, 7 }, radius = { 7, 10 }, bank = "Rock", crest = "Grass", crestAbove = 0.3,
+		decorChance = 0.2, decor = { { kind = "Rock", weight = 3 }, { kind = "JaggedRock", weight = 2 }, { kind = "Pine", weight = 2 } },
+		runs = { kind = "StoneWall", above = 0.25 },
+		stone = { 132, 130, 126 },
+		naturalChance = 0.28, naturalDecor = { { kind = "JaggedRock", weight = 3 }, { kind = "Rock", weight = 2 }, { kind = "Pine", weight = 2 } },
+		edgeChance = 0.6, edgeMaterial = "Slate",
+	},
+	Verdantwild = {
+		label = "Overgrown stone edges, roots, mossy rocks and dense jungle at chosen points",
+		height = { 4, 6 }, radius = { 7, 9 }, bank = "Limestone", crest = "LeafyGrass", crestAbove = 0.12,
+		decorChance = 0.25, decor = { { kind = "MossyRock", weight = 3 }, { kind = "RootTangle", weight = 2 }, { kind = "Fern", weight = 3 }, { kind = "BigLeaf", weight = 2 } },
+		runs = { kind = "OvergrownEdge", above = 0.35 },
+		trees = { kind = "JungleTree", chance = 0.42 },
+		stone = { 150, 160, 120 },
+		edgeChance = 0.5, edgeMaterial = "Rock",
+	},
+	GlacialExpanse = {
+		label = "Snow-covered ridges, exposed rock and ice formations",
+		height = { 4.5, 7 }, radius = { 8, 10 }, bank = "Rock", crest = "Snow", crestAbove = 0.08,
+		decorChance = 0.22, decor = { { kind = "IceSpike", weight = 4 }, { kind = "SnowRock", weight = 3 }, { kind = "SnowPine", weight = 2 } },
+		stone = { 200, 214, 228 },
+		naturalChance = 0.28, naturalDecor = { { kind = "IceSpike", weight = 3 }, { kind = "SnowRock", weight = 2 } },
+		edgeChance = 0.55, edgeMaterial = "Slate",
+	},
+	Ashenreach = {
+		label = "Dark volcanic rock, jagged stone and blackened earth",
+		height = { 4.5, 7 }, radius = { 7, 10 }, bank = "Slate", crest = "Basalt", crestAbove = 0.3,
+		decorChance = 0.22, decor = { { kind = "AshRock", weight = 4 }, { kind = "BasaltSpire", weight = 2 }, { kind = "JaggedRock", weight = 2 } },
+		stone = { 64, 58, 62 },
+		naturalChance = 0.32, naturalDecor = { { kind = "BasaltSpire", weight = 3 }, { kind = "AshRock", weight = 2 } },
+		edgeChance = 0.6, edgeMaterial = "Basalt",
+	},
+	StarfallHighlands = {
+		label = "Unusual pale rock formations with the occasional crystal outcrop",
+		height = { 4, 6.5 }, radius = { 7, 9 }, bank = "Pavement", crest = "Limestone", crestAbove = 0.3,
+		decorChance = 0.2, decor = { { kind = "PaleRock", weight = 4 }, { kind = "StoneArchlet", weight = 2 }, { kind = "Crystal", weight = 1 } },
+		stone = { 214, 206, 230 },
+		naturalChance = 0.32, naturalDecor = { { kind = "PaleRock", weight = 3 }, { kind = "StoneArchlet", weight = 2 }, { kind = "Crystal", weight = 1 } },
+		edgeChance = 0.55, edgeMaterial = "Limestone",
+	},
+	DragonsEnd = {
+		label = "Dramatic dark ridges and monumental stone walls",
+		height = { 6, 9 }, radius = { 8, 11 }, bank = "Basalt", crest = "Slate", crestAbove = 0.3,
+		decorChance = 0.24, decor = { { kind = "JaggedRock", weight = 4 }, { kind = "BasaltSpire", weight = 2 }, { kind = "AshRock", weight = 2 } },
+		runs = { kind = "DarkWall", above = 0.3 },
+		stone = { 58, 54, 64 },
+		naturalChance = 0.42, naturalDecor = { { kind = "JaggedRock", weight = 3 }, { kind = "BasaltSpire", weight = 3 } },
+		edgeChance = 0.65, edgeMaterial = "Slate",
+	},
+} :: any) :: { [string]: BorderStyle }
+
 return RegionConfig

@@ -1,18 +1,54 @@
 # PROJECT_STATUS — MMO Tycoon (Roblox)
 
-Part of [[MMORPG Tycoon]] · Last updated: 2026-10-18 evening (Phase 5 continent overhaul published)
+Part of [[MMORPG Tycoon]] · Last updated: 2026-10-19 (Phase 5b buildable sections and natural borders published)
 
 ## Current phase
-**Phase 5: World map overhaul. The World place is now a connected fantasy continent with ten levelled regions. Built, tested in Studio and published (World place v10). Awaiting review.**
+**Phase 5b: Buildable sections and natural borders. The continent is divided into 57 named sections with biome-specific raised borders and entrances. Built, tested in Studio and published (World place v18, 2026-10-19). Awaiting review.**
 
-- **The continent:** about 3,200 × 3,000 studs of smooth terrain in an organic, noise-warped coastline. Ten regions run from Lv 1 to Lv 100: Greenhaven Grasslands (1–10, the start, around your build plot) → Whisperwood Forest → Sunscar Desert → Mirehollow Swamps → Frostpeak Mountains → Verdantwild Jungle → Glacial Expanse → Ashenreach → Starfall Highlands → Dragon's End (91–100).
-- **Borders are organic:** domain-warped weighted Voronoi with a 150-stud blend band, plus dithered materials. A test fails any region that fills more than 85% of its bounding box.
-- **Content:** 18 landmarks (Elder Oak, Heartroot, Sandstone Arch, Drowned Tower, Mountain Shrine, Silver Falls, Jungle Temple, Jade Falls, Ice Spires, Ice Cave, The Cinder Maw crater, Ash Fortress, Observatory, Giant Crystal, Dragon Citadel, Dragonbones, ruins). Also 6 roads, 4 rivers with 3 bridges, 5 lakes (one frozen), lava channels, 13 signposts and about 1,230 scenery pieces from roughly 30 code-built kinds.
-- **Region HUD:** walking into a region shows "<Region> · Recommended Lv X–Y" and eases the sky haze to that region's mood.
-- **Plot unchanged:** the build plot is still at the origin, flat and dry in Greenhaven. Saved worlds load unchanged ("17 objects rebuilt, 0 dropped").
-- **Economy:** new worlds start with **$5,000** (`START_CASH`). Existing worlds keep their balance.
-- **World name:** the default is now **"My World"**. Worlds still on an old default ("My MMORPG" / "My MMO") are renamed when they load.
-- **Backup:** `C:\Roblox Dev\MMORPG Tycoon\backups\World-before-continent-2026-10-18.rbxl` (downloaded before any terrain change).
+- **57 sections** (4–8 per region, sized by geography), e.g. Greenhaven: Starting Meadow (your plot), Elder Oak Hill, North Fields, Silverrun Bend, Mirrormere Shore, South Downs. Ids are stable (`GH_StartingMeadow` …) for a future unlock system.
+- **Borders are additive:** the continent's terrain maths is untouched (fingerprint still 13736.985). Borders are low terrain embankments, 3–9 studs depending on the biome, built from a contrasting bank material (earth, rock, sandstone, pale stone, violet stone, basalt…), plus half-buried edge stones and biome props:
+  - Greenhaven: fences
+  - Whisperwood and Verdantwild: dense tree lines
+  - Sunscar: sandstone walls
+  - Mirehollow: walkways
+  - Frostpeak: stone walls
+  - Glacial: ice spikes
+  - Ashenreach and Dragon's End: basalt spires and monumental dark walls
+  - Starfall: crystals and leaning arches
+- **Existing slopes, crests, rivers, lakes and the coast are used as borders** instead of building on top of them (1,507 border points are left natural, 120 are water).
+- **Entrances:**
+  - 43 road gateways: a tall pair of lantern waystones in the region's colour
+  - 70 trail entrances: a gap in the bank with two waystones and a worn path, or a plank walkway in the swamp
+  - Every pair of neighbouring sections is connected (road 40, trail 71, open 21, mountain pass 9).
+- **HUD:** walking into a new section shows "◆ North Fields ◆" under the region banner.
+- **Build mode, persistence, ownership:** unchanged. Building is still only allowed on your plot; sections are visual for now.
+- **Backup:** `backups/World-before-borders-2026-10-19.rbxl`, plus `BorderBuilder.remove()` restores the original terrain exactly.
+
+### Phase 5b test results (brief's tests A–K)
+| Test | Result | Evidence |
+|---|---|---|
+| A — continent intact | ✅ | Terrain fingerprint unchanged (test + Studio); all ten regions, landmarks, rivers, coast as before |
+| B — irregular sections | ✅ | `Sections_Test`: no section fills more than 85% of its bounding box; sizes vary more than 2.5×; each section is one piece of land |
+| C — border appearance | ✅ (visual) | Toured all ten biomes in Studio from several angles; reworked twice (grass-on-grass banks were unreadable, narrow banks rendered as sharp roofs) |
+| D — entrances | ✅ | Every neighbouring pair connected (test); gaps verified clear of banks; walked a character across a border |
+| E — terrain fit | ✅ | Automated check of all 2,382 props: 0 floating, 0 hidden. Found and fixed a ray-origin bug that buried 113 stones on high ground |
+| F — build mode | ✅ | Build HUD (categories, rotate, remove, HUB) present; region and section banners work |
+| G — placement | ✅ | Real remotes: place −$5, remove +$5 refund, outside the plot → `OutOfBounds` |
+| H — removal | ✅ | `RequestRemove` with border prop names → `NotFound`; border parts are not queryable (remove-mode raycast can't hit them) |
+| I — persistence / no duplicates | ✅ | Saved world reloaded identically (18 and 37 objects); rebuilding the borders leaves one `SectionBorders` folder |
+| J — performance | ✅ / 🟡 | 6,197 border parts (budget 6,500), all anchored, no touch/query; 60 fps on this PC with streaming; not measured on a phone |
+| K — one connected world | ✅ (visual) | See `docs/images/section-map.png` and the Studio tour |
+
+### Unit tests
+Local (Lune): World 112/112, Hub 73/73. Studio (World place): **153/153**. Type check: 0 errors.
+
+### Pre-existing issues found during the tour (not caused by the borders; left alone per the brief)
+- The Marsh Path / Pilgrim's Road causeway through Mirehollow renders as large ridged plank wedges (a narrow raised WoodPlanks strip at 4-stud voxels).
+- Most swamp pools don't appear in Studio: the swamp water level (1.6) sits below the 4-stud voxel centre, so only deeper pools show.
+- Suggested fix for both (needs a small continent change, so not done without approval): widen and flatten the swamp causeway, and raise `SWAMP_LEVEL` to ~2.2.
+
+### Phase 5 (2026-10-18): the continent
+Ten organic regions Lv 1–100, landmarks, roads, rivers, lakes, region HUD, $5,000 start, "My World" default. Details below.
 
 ### Phase 5 test results (brief's tests A–L)
 | Test | Result | Evidence |
@@ -100,10 +136,10 @@ Both places are published with the latest code. The World place is the fantasy c
 |---|---|
 | Experience | **MMO Tycoon**, private (Playtesters), Team Create on. Open it from Studio's home page; the World place is under Asset Manager → Places in Experience ("sterburger985's Place"). |
 | Hub place | 78195623283467 — 30 scripts, build r10, published |
-| World place | 86431904123318 — 48 scripts, build r11, continent built in edit mode and saved, published v10 |
+| World place | 86431904123318 — 52 scripts, build r19, continent + section borders built in edit mode and saved, published v18 |
 | Local `.rbxl` files | Superseded by the published places (kept, not needed) |
-| Install models | `C:\Roblox Dev\MMORPG Tycoon\build\hub-install-r10.rbxm`, `world-install-r11.rbxm` (latest); older ones can be deleted. Generated by `tools/make-install-model.py`. |
-| Repo | `github.com/sterburger985/MMORPG-TYCOON`: Phases 0–5 pushed (`main`) |
+| Install models | `C:\Roblox Dev\MMORPG Tycoon\build\hub-install-r10.rbxm`, `world-install-r19.rbxm` (latest); older ones can be deleted. Generated by `tools/make-install-model.py`. |
+| Repo | `github.com/sterburger985/MMORPG-TYCOON`: Phases 0–5b pushed (`main`) |
 | Type check | 0 errors in both places |
 
 ### Updating a place (until the Studio connector works)
@@ -149,6 +185,8 @@ Legend: ✅ tested successfully in Studio · 🟡 implemented, not tested in Stu
 - **Studio MCP connector:** still "no_tools" in the Claude desktop app with Studio open. Claude can't control the Claude app itself, so restarting it is a manual step (Settings → Developer / Connectors → Roblox Studio → restart, or quit and reopen the app).
 - **Studio multi-client tests:** test players have negative UserIds, so the World server (correctly) won't make one an owner; use `OwnerOverride` to test visitors.
 - **Multi-client behaviour untested** in both places.
+- **Border edits:** change `RegionConfig.SECTIONS` / `BORDER_STYLES`, install, then in edit mode run `local BB = require(game.ServerStorage.WorldTools.BorderBuilder); BB.remove(); BB.build()` (about 45 s), then publish.
+- **Team Create drops:** Studio lost its Team Create connection twice during testing (reconnect worked; edits were kept). Publish after big edits.
 - **Continent edits:** terrain is prebuilt and saved in the place. To change the map, edit `RegionConfig`, install the new build, then run `require(game.ServerStorage.WorldTools.ContinentBuilder).build()` in edit mode (about 15 s), then publish.
 - **Ocean edge:** from very high up, the square edge of the sea terrain is visible. Normal play heights don't show it.
 - **Performance on phones** not measured yet (6,212 scenery parts plus terrain).

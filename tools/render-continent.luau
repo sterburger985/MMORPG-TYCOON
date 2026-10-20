@@ -166,6 +166,93 @@ if overlay == "regions" then
 	end
 end
 
+
+if overlay == "sections" then
+	local Sections = req(shared:FindFirstChild("Sections"))
+	local t1 = os.clock()
+	local plan = Sections.plan()
+	print(("sections plan %.2fs"):format(os.clock() - t1))
+	local function dot(x, z, r, cr, cg, cb)
+		local ci, cj = math.floor((x - b.minX) / step), math.floor((z - b.minZ) / step)
+		for dj = -r, r do
+			for di = -r, r do
+				if di * di + dj * dj <= r * r then
+					setPx(ci + di, cj + dj, cr, cg, cb)
+				end
+			end
+		end
+	end
+	local KC = { ridge = { 255, 240, 120 }, gap = { 255, 60, 60 }, natural = { 120, 120, 255 }, water = { 0, 255, 255 }, blocked = { 255, 0, 255 } }
+	for _, p in plan.points do
+		local c = KC[p.kind]
+		if p.kind == "ridge" or p.kind == "natural" or p.kind == "blocked" or p.kind == "gap" then
+			dot(p.x, p.z, 0, c[1], c[2], c[3])
+		end
+	end
+	for _, g in plan.gates do
+		dot(g.x, g.z, 3, 255, 40, 40)
+	end
+	for _, t in plan.trails do
+		dot(t.x, t.z, 3, 40, 255, 80)
+	end
+	for _, s in Sections.all() do
+		dot(s.x, s.z, 2, 255, 255, 255)
+	end
+	local c = plan.counts
+	print(("points: ridge %d low %d gap %d natural %d water %d blocked %d sea %d; gates %d trails %d decor %d"):format(c.ridge, c.low, c.gap, c.natural, c.water, c.blocked, c.sea, #plan.gates, #plan.trails, #plan.decor))
+	local est, kinds = 0, {}
+	for _, d in plan.decor do
+		est += Sections.PART_ESTIMATE[d.kind] or 4
+		kinds[d.kind] = (kinds[d.kind] or 0) + 1
+	end
+	est += (#plan.gates * 2 + #plan.trails * 2) * 3
+	local parts = {}
+	for k, v in kinds do
+		table.insert(parts, k .. "=" .. v)
+	end
+	table.sort(parts)
+	print("estimated border parts", est, table.concat(parts, " "))
+	local vias = {}
+	for _, pk in plan.pairOrder do
+		local cn = plan.connections[pk]
+		if not cn then continue end
+		vias[cn.via or "nil"] = (vias[cn.via or "nil"] or 0) + 1
+		if cn.via == "none" or cn.via == "water" or cn.via == nil then
+			print("  pair", Sections.all()[cn.a].id, Sections.all()[cn.b].id, cn.via, "ridge", cn.ridge, "nat", cn.natural, "water", cn.water)
+		end
+	end
+	for k, v in vias do
+		print("connections via", k, v)
+	end
+
+	-- Optional JSON export of the section layout (for tools/label-map.py --sections).
+	local jsonPath = process.args[5]
+	if jsonPath then
+		local serde = require("@lune/serde")
+		local R = plan.raster
+		local ids = {}
+		local W2, H2 = math.floor((R.W - 1) / 2) + 1, math.floor((R.H - 1) / 2) + 1
+		for k = 0, H2 - 1 do
+			for i = 0, W2 - 1 do
+				ids[k * W2 + i + 1] = R.ids[(k * 2) * R.W + i * 2 + 1]
+			end
+		end
+		local secs = {}
+		for _, sct in Sections.all() do
+			table.insert(secs, { id = sct.id, name = sct.name, x = sct.x, z = sct.z, region = sct.region })
+		end
+		local gates, trails = {}, {}
+		for _, g in plan.gates do
+			table.insert(gates, { g.x, g.z })
+		end
+		for _, t in plan.trails do
+			table.insert(trails, { t.x, t.z })
+		end
+		fs.writeFile(jsonPath, serde.encode("json", { W = W2, H = H2, minX = R.minX, minZ = R.minZ, G = R.G * 2, ids = ids, sections = secs, gates = gates, trails = trails }))
+		print("wrote", jsonPath)
+	end
+end
+
 local header = ("P6\n%d %d\n255\n"):format(W, H)
 local bytes = table.create(#pixels)
 for k, v in pixels do
